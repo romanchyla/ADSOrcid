@@ -1,0 +1,6 @@
+pika
+ptree
+ConcurrentLogHandler
+requests
+supervisor
+coveralls
