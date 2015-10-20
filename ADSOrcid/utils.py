@@ -5,14 +5,10 @@ project, and so do not belong to anything specific.
 """
 
 
-import sys
 import os
 import logging
-import string
-import unicodedata
-import re
-import json
 import imp
+import sys
 
 from cloghandler import ConcurrentRotatingFileHandler
 
@@ -23,9 +19,15 @@ def load_config():
     
     :return dictionary
     """
-    conf = load_module('config.py')
-    conf.update(load_module('local_config.py'))
-    conf['PROJ_HOME'] = os.path.dirname('..')
+    conf = {}
+    PROJECT_HOME = os.path.abspath(os.path.join(os.path.dirname(__file__), './'))
+    if PROJECT_HOME not in sys.path:
+        sys.path.append(PROJECT_HOME)
+    conf['PROJ_HOME'] = PROJECT_HOME
+    
+    conf.update(load_module(os.path.join(PROJECT_HOME, 'config.py')))
+    conf.update(load_module(os.path.join(PROJECT_HOME, 'local_config.py')))
+    
     return conf
 
 def load_module(filename):
@@ -47,7 +49,7 @@ def load_module(filename):
     from_object(d, res)
     return res
 
-def setup_logging(file_, name_, level=config['LOGGING_LEVEL']):
+def setup_logging(file_, name_, level='WARN'):
     """
     Sets up generic logging to file with rotating files on disk
 
@@ -63,7 +65,7 @@ def setup_logging(file_, name_, level=config['LOGGING_LEVEL']):
     datefmt = '%m/%d/%Y %H:%M:%S'
     formatter = logging.Formatter(fmt=logfmt, datefmt=datefmt)
     logging_instance = logging.getLogger(name_)
-    fn_path = os.path.join(os.path.dirname(file_), PROJ_HOME, 'logs')
+    fn_path = os.path.join(os.path.dirname(file_), 'logs')
     if not os.path.exists(fn_path):
         os.makedirs(fn_path)
     fn = os.path.join(fn_path, '{0}.log'.format(name_))

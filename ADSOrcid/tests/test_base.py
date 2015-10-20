@@ -7,19 +7,9 @@ other common utilities that are used.
 import sys
 import os
 
-PROJECT_HOME = os.path.abspath(os.path.join(os.path.dirname(__file__), '../'))
-sys.path.append(PROJECT_HOME)
-
 import unittest
 import time
 import json
-import lib.CheckIfExtract as check_if_extract
-from pipeline import psettings
-from pipeline.workers import RabbitMQWorker, CheckIfExtractWorker, \
-    StandardFileExtractWorker, WriteMetaFileWorker, ErrorHandlerWorker, \
-    ProxyPublishWorker
-from pipeline.ADSfulltext import TaskMaster
-from run import publish, read_links_from_file
 from ADSOrcid import utils
 
 
@@ -30,7 +20,15 @@ class TestUnit(unittest.TestCase):
     Default unit test class. It sets up the stub data required
     """
     def setUp(self):
-        build_links(test_name='integration')
+        config = utils.load_config()
+        config['TEST_UNIT_DIR'] = os.path.join(config['PROJ_HOME'],
+                         'tests/test_integration')
+        config['TEST_INTGR_DIR'] = os.path.join(config['PROJ_HOME'],
+                         'tests/test_integration')
+        config['TEST_FUNC_DIR'] = os.path.join(config['PROJ_HOME'],
+                         'tests/test_integration')
+        self.config = config
+        self.app = self.create_app()
 
 
 class TestGeneric(unittest.TestCase):
@@ -49,14 +47,7 @@ class TestGeneric(unittest.TestCase):
         :return: no return
         """
         
-        config = utils.load_config()
-        config['TEST_UNIT_DIR'] = os.path.join(config.PROJ_HOME,
-                         'tests/test_integration')
-        config['TEST_INTGR_DIR'] = os.path.join(config.PROJ_HOME,
-                         'tests/test_integration')
-        config['TEST_FUNC_DIR'] = os.path.join(config.PROJ_HOME,
-                         'tests/test_integration')
-        self.config = config
+        
         
         # Build the link files
         build_links(test_name='integration')
