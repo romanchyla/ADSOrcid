@@ -21,12 +21,16 @@ class TestUnit(unittest.TestCase):
     """
     def setUp(self):
         config = utils.load_config()
+        
+        #update PROJ_HOME since normally it is run from higher leve
+        config['PROJ_HOME'] = os.path.abspath(config['PROJ_HOME'] + '/..')
+        
         config['TEST_UNIT_DIR'] = os.path.join(config['PROJ_HOME'],
-                         'tests/test_integration')
+                         'ADSOrcid/tests/test_unit')
         config['TEST_INTGR_DIR'] = os.path.join(config['PROJ_HOME'],
-                         'tests/test_integration')
+                         'ADSOrcid/tests/test_integration')
         config['TEST_FUNC_DIR'] = os.path.join(config['PROJ_HOME'],
-                         'tests/test_integration')
+                         'ADSOrcid/tests/test_functional')
         self.config = config
         self.app = self.create_app()
 

@@ -21,6 +21,8 @@ def update_record(rec, claim):
                 author_norm
             We use those field to find out which author made the
             claim.
+    
+    :return: None - it updates the `rec` directly
     """
     assert(isinstance(rec, dict))
     assert(isinstance(claim, dict))
@@ -38,6 +40,10 @@ def update_record(rec, claim):
     # search using descending priority
     for fx in ('author', 'orcid_name', 'author_norm'):
         if fx in rec:
+            
+            assert(isinstance(rec['author'], list))
+            assert(isinstance(claim[fx], list))
+            
             idx = find_orcid_position(rec['author'], claim[fx])
             if idx > -1:
                 rec[fld_name][idx] = claim['orcidid'] 
@@ -52,8 +58,8 @@ def find_orcid_position(authors_list, name_variants):
     
     :return list of positions that match
     """
-    al = [matcher.cleanup_name(x) for x in authors_list]
-    nv = [matcher.cleanup_name(x) for x in name_variants]
+    al = [matcher.cleanup_name(x).lower().decode('utf8') for x in authors_list]
+    nv = [matcher.cleanup_name(x).lower().decode('utf8') for x in name_variants]
     
     # compute similarity between all authors (and the supplied variants)
     # this is not very efficient, however the lists should be small

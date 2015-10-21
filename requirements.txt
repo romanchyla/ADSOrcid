@@ -1,8 +1,4 @@
-pika
-ptree
 ConcurrentLogHandler
 requests
-supervisor
-coveralls
 python-Levenshtein
 sqlalchemy

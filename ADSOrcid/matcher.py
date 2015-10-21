@@ -21,6 +21,8 @@ def retrieve_orcid(orcid):
         u = create_orcid(orcid)
         session.add(u)
         session.commit()
+        
+        return session.query(AuthorInfo).filter_by(orcidid=orcid).first()
 
    
 def create_orcid(orcid, name=None, facts=None):
@@ -45,7 +47,7 @@ def create_orcid(orcid, name=None, facts=None):
         name = name or profile['name']
         facts = profile
 
-    return AuthorInfo(orcidid=orcid, facts=json.dumps(facts))
+    return AuthorInfo(orcidid=orcid, name=name, facts=json.dumps(facts))
 
 
 def harvest_author_info(orcidid, name=None, facts=None):
@@ -56,12 +58,19 @@ def harvest_author_info(orcidid, name=None, facts=None):
     
     At this stage, we want to mainly retrieve author
     names (ie. variations of the author name)
+    
+    :param: orcidid - String
+    :param: name - String, name of the author (optional)
+    :param: facts - dict, info about the author
+    
+    :return: dict with various keys: name, author, author_norm, orcid_name
+            (if available)
     """
     
     author_data = {}
     
     # first verify the public ORCID profile
-    r = requests.get(config.get('API_ORCID_PUBLIC_PROFILE_ENDPOINT') % orcidid,
+    r = requests.get(config.get('API_ORCID_PROFILE_ENDPOINT') % orcidid,
                  headers={'Accept': 'application/json'})
     if r.status_code != 200:
         app.logger.error('We cant verify public profile of: http://orcid.org/%s' % orcidid)
@@ -74,9 +83,9 @@ def harvest_author_info(orcidid, name=None, facts=None):
             'family-name' in j['orcid-profile']['orcid-bio']['personal-details'] and \
             'given-names' in j['orcid-profile']['orcid-bio']['personal-details']:
             
-            author_data['orcid_name'] = '%s, %s' % \
-                (j['orcid-profile']['orcid-bio']['personal-details']['family-name'],
-                 j['orcid-profile']['orcid-bio']['personal-details']['given-names'])
+            author_data['orcid_name'] = ['%s, %s' % \
+                (j['orcid-profile']['orcid-bio']['personal-details']['family-name']['value'],
+                 j['orcid-profile']['orcid-bio']['personal-details']['given-names']['value'])]
                 
                 
     # search for the orcidid in our database (but only the publisher populated fiels)
@@ -101,7 +110,7 @@ def harvest_author_info(orcidid, name=None, facts=None):
             if v:
                 master_set.setdefault(k, {})
                 n = cleanup_name(v)
-                if master_set[k].has_key(n):
+                if not master_set[k].has_key(n):
                     master_set[k][n] = 0
                 master_set[k][n] += 1
     
@@ -112,7 +121,7 @@ def harvest_author_info(orcidid, name=None, facts=None):
     # record update)
     mx = 0
     for k,v in master_set.items():
-        author_data[k] = list(v.keys())
+        author_data[k] = sorted(list(v.keys()))
         for name, freq in v.items():
             if freq > mx:
                 author_data['name'] = name
@@ -152,9 +161,9 @@ def cleanup_name(name):
     Removes some unnecessary characters from the name
     """
     if not name:
-        return name
+        return ''
     name = name.replace('.', '')
     name = ' '.join(name.split())
-    return name.lower()    
+    return name 
         
     
