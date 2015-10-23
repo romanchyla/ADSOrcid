@@ -17,9 +17,10 @@ import os
 import math
 import httpretty
 import mock
+from io import BytesIO
 
 from ADSOrcid.tests import test_base
-from ADSOrcid import matcher, app, updater
+from ADSOrcid import matcher, app, updater, importer
 from ADSOrcid.models import AuthorInfo, ClaimsLog, Records, Base
 
 class TestMatcherUpdater(test_base.TestUnit):
@@ -164,6 +165,27 @@ class TestMatcherUpdater(test_base.TestUnit):
           ['Stern, D.', 'Stern, Daniel']                          
         )
         self.assertEqual(res, 12)
+        
+        
+    def test_importer_import_recs(self):
+        """It should know how to import bibcode:orcidid pairs
+        :return None
+        """
+        
+        fake_file = BytesIO("\n".join([
+                                 "b123456789123456789\t0000-0000-0000-0001",
+                                 "b123456789123456789\t0000-0000-0000-0002\tarxiv",
+                                 "b123456789123456789\t0000-0000-0000-0003\tarxiv\tclaimed",
+                                 "b123456789123456789\t0000-0000-0000-0004\tfoo        \tcreated\t2008-09-03T20:56:35.450686Z",
+                                 "b123456789123456789\t0000-0000-0000-0005",
+                                 "b123456789123456789\t0000-0000-0000-0006",
+                                 "b123456789123456789\t0000-0000-0000-0004\tfoo        \tupdated\t2009-09-03T20:56:35.450686Z",
+                                ]))
+        with mock.patch('ADSOrcid.importer.open', return_value=fake_file, create=True
+                ) as context:
+            importer.import_recs(__file__)
+            self.assertTrue(len(self.app.session.query(ClaimsLog).all()) == 7)
+        
 
 
 if __name__ == '__main__':

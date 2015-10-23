@@ -2,3 +2,4 @@ ConcurrentLogHandler
 requests
 python-Levenshtein
 sqlalchemy
+python-dateutil==2.4.2

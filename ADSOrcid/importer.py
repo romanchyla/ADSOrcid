@@ -6,7 +6,8 @@ from . import app
 import dateutil.parser
 import datetime
 
-def import_recs(input_file, default_provenance=None, default_status=None):
+
+def import_recs(input_file, default_provenance=None, default_status='created'):
     """
     Imports (creates log records) of claims from
     :param: input_file - String, path to the file with the following 
@@ -26,18 +27,22 @@ def import_recs(input_file, default_provenance=None, default_status=None):
                            file=input_file
                            ))
     
+    if default_provenance is None:
+        default_provenance = os.path.abspath(input_file)
+        
     def rec_builder(bibcode=None, orcidid=None, provenance=None, status=None, date=None):
         assert(bibcode and orcidid)
         return ClaimsLog(bibcode=bibcode, 
                       orcidid=orcidid,
                       provenance=provenance or default_provenance, 
                       status=status or default_status,
-                      date=date and dateutil.parser.parse(date) or datetime.datetime.utcnow)
+                      created=date and dateutil.parser.parse(date) or datetime.datetime.utcnow())
         
     i = 0
-    with open(input_file) as fi:
+    with open(input_file, 'r') as fi:
         with app.session_scope() as session:
             for line in fi:
+                i += 1
                 l = line.strip()
                 if len(l) == 0 or l[0] == '#':
                     continue
@@ -47,4 +52,6 @@ def import_recs(input_file, default_provenance=None, default_status=None):
                     session.add(rec)
                 except Exception, e:
                     app.logger.error('Error importing line %s (%s) - %s' % (i, l, e))
+                if i % 1000 == 0:
+                    session.commit()
             session.commit()
