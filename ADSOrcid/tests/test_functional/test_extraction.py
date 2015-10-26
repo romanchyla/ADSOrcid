@@ -1,26 +1,15 @@
 """
 Functional test
 
-Loads the ADSfulltext workers for both the Python and Java code. It then injects
-a number of full text articles to be extracted onto the RabbitMQ instance. Once
-extracted, it checks that the full text file and the meta.json file have been
-written to disk. It then shuts down all of the workers.
+Loads the ADSOrcid workers. It then injects input onto the RabbitMQ instance. Once
+processed it then checks all things were written where they should. 
+It then shuts down all of the workers.
 """
 
-__author__ = 'J. Elliott'
-__maintainer__ = 'J. Elliott'
-__copyright__ = 'Copyright 2015'
-__version__ = '1.0'
-__email__ = 'ads@cfa.harvard.edu'
-__status__ = 'Production'
-__license__ = 'GPLv3'
 
 import sys
 import os
 
-PROJECT_HOME = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), '../../'))
-sys.path.append(PROJECT_HOME)
 
 import run
 import os
@@ -28,8 +17,6 @@ import time
 import subprocess
 import string
 import unittest
-from lib.test_base import TestGeneric
-from settings import PROJ_HOME, CONSTANTS
 
 
 class TestExtractWorker(TestGeneric):

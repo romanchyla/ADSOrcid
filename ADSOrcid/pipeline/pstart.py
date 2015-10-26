@@ -227,28 +227,11 @@ def main():
                         help='Worker will sit on the queue, continuously '
                              'consuming.')
 
-    parser.add_argument('--testing',
-                        dest='extract_key',
-                        action='store_const',
-                        const='FULLTEXT_EXTRACT_PATH_UNITTEST',
-                        help='Uses the tests/ as an output directory, relevant '
-                             'for unit tests')
-
-    parser.add_argument('--live',
-                        dest='extract_key',
-                        action='store_const',
-                        const='FULLTEXT_EXTRACT_PATH',
-                        help='Uses the user given output directory, relevant '
-                             'for live running')
 
     parser.set_defaults(test_run=False)
-    parser.set_defaults(extract_key='FULLTEXT_EXTRACT_PATH')
-
     args = parser.parse_args()
 
-    params_dictionary = {'TEST_RUN': args.test_run,
-                         'extract_key': args.extract_key}
-
+    params_dictionary = {'TEST_RUN': args.test_run}
     start_pipeline(params_dictionary)
 
 

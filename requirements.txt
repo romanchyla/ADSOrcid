@@ -3,3 +3,4 @@ requests
 python-Levenshtein
 sqlalchemy
 python-dateutil==2.4.2
+pika==0.10.0

@@ -1,19 +1,11 @@
 """
-Settings for the rabbitMQ/ADSfulltext
+Settings for the rabbitMQ/ADSOrcid
 """
 
-__author__ = 'J. Elliott'
-__maintainer__ = 'J. Elliott'
-__copyright__ = 'Copyright 2015'
-__version__ = '1.0'
-__email__ = 'ads@cfa.harvard.edu'
-__status__ = 'Production'
-__credit__ = ['V. Sudilovsky']
-__license__ = 'GPLv3'
 
 # Travis-CI uses guest:guest
 # Max message size = 500kb
-RABBITMQ_URL = 'amqp://guest:guest@localhost:5672/adsfulltext?' \
+RABBITMQ_URL = 'amqp://guest:guest@localhost:5672/adsorcid?' \
                'socket_timeout=10&backpressure_detection=t'
 
 POLL_INTERVAL = 15  # per-worker poll interval (to check health) in seconds.

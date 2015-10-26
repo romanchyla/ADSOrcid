@@ -6,6 +6,41 @@ from . import app
 import dateutil.parser
 import datetime
 
+ALLOWED_STATUS = set(['claimed', 'updated', 'deleted'])
+
+def upsert_claim(bibcode=None, orcidid=None, provenance=None, status=None, date=None):
+    """
+    Inserts (or updates) ClaimLog entry.
+    
+    :return: ClaimsLog instance (however this is only for reading, you should
+        not try to do anything with it; the session will have been closed already)
+    """
+    assert(bibcode and orcidid)
+    if isinstance(date, basestring):
+        date = dateutil.parser.parse(date)
+    if status and status.lower() not in ALLOWED_STATUS:
+        raise Exception('Unknown status %s' % status)
+    
+    if not date: # we don't need to verify the record exists
+        return ClaimsLog(bibcode=bibcode, 
+                  orcidid=orcidid,
+                  provenance=provenance, 
+                  status=status,
+                  created=date or datetime.datetime.utcnow())
+    else:
+        with app.scoped_session as session:
+            f = session.query(ClaimsLog).filter_by(created=date).first()
+            if f and f.bibcode == bibcode and f.orcidid == orcidid:
+                f.provenance = provenance
+                f.status = status
+            else:
+                return ClaimsLog(bibcode=bibcode, 
+                  orcidid=orcidid,
+                  provenance=provenance, 
+                  status=status,
+                  created=datetime.datetime.utcnow())
+                
+                     
 
 def import_recs(input_file, default_provenance=None, default_status='created'):
     """

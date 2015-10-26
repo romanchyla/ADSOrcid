@@ -35,7 +35,7 @@ class TestUnit(unittest.TestCase):
         self.app = self.create_app()
 
 
-class TestGeneric(unittest.TestCase):
+class TestFunctional(unittest.TestCase):
     """
     Generic test class. Used as the primary class that implements a standard
     integration test. Also contains a range of helper functions, and the correct
