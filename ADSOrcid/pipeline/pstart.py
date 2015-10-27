@@ -14,12 +14,14 @@ import os
 
 import psettings
 import multiprocessing
+import threading
 import time
 import signal
 import sys
-import workers
-from workers import RabbitMQWorker
-from utils import setup_logging
+from ADSOrcid.pipeline import pworkers as workers
+from ADSOrcid.pipeline.worker import RabbitMQWorker
+from ADSOrcid.utils import setup_logging
+from copy import deepcopy
 
 
 logger = setup_logging(__file__, __name__)
@@ -45,18 +47,20 @@ class TaskMaster(Singleton):
     RabbitMQ instance running
     """
 
-    def __init__(self, rabbitmq_url, rabbitmq_routes, workers):
+    def __init__(self, rabbitmq_url, exchange, rabbitmq_routes, workers):
         """
         Initialisation function (constructor) of the class
 
         :param rabbitmq_url: URI of the RabbitMQ instance
+        :param exchange: the name of the main exchange
         :param rabbitmq_routes: list of routes that should exist
         :param workers: list of workers that should be started
         :return: no return
         """
         self.rabbitmq_url = rabbitmq_url
-        self.rabbitmq_routes = rabbitmq_routes
-        self.workers = workers
+        self.exchange = exchange
+        self.rabbitmq_routes = deepcopy(rabbitmq_routes)
+        self.workers = deepcopy(workers)
         self.running = False
 
     def quit(self, os_signal, frame):
@@ -85,18 +89,41 @@ class TaskMaster(Singleton):
     def initialize_rabbitmq(self):
         """
         Sets up the correct routes, exchanges, and bindings on the RabbitMQ
-        instance for full text extraction
+        instance
 
         :return: no return
         """
 
         w = RabbitMQWorker()
         w.connect(self.rabbitmq_url)
-        w.declare_all(*[self.rabbitmq_routes[i]
-                        for i in ['EXCHANGES', 'QUEUES', 'BINDINGS']])
+        
+        # make sure the exchange is there
+        w.channel.exchange_declare(
+                        exchange=self.exchange,
+                        passive=False,
+                        durable=True,
+                        internal=False,
+                        type='topic')
+        
+        # make sure queues exists
+        for qname, qvals in self.rabbitmq_routes.items():
+            w.channel.queue_declare(
+                        queue=qname, 
+                        passive=False, 
+                        durable=qvals.has_key('durable'), 
+                        exclusive=False, 
+                        auto_delete=False)
+            
+            # make sure messages are properly routed
+            w.channel.queue_bind(
+                    queue=qname, 
+                    exchange=self.exchange, 
+                    routing_key=qvals['routing_key'])
+        
         w.connection.close()
 
-    def poll_loop(self, poll_interval=psettings.POLL_INTERVAL, ttl=7200,
+
+    def poll_loop(self, poll_interval=60, ttl=7200,
                   extra_params=False):
         """
         Starts all of the workers connecting and consuming to the queue. It then
@@ -118,16 +145,17 @@ class TaskMaster(Singleton):
 
                         logger.debug('{0} is not alive, restarting: {1}'.format(
                             active['proc'], worker))
-
-                        active['proc'].terminate()
+                        if hasattr(active['proc'], 'terminate'):
+                            active['proc'].terminate()
                         active['proc'].join()
-                        active['proc'].is_alive()
-                        params['active'].remove(active)
+                        if not active['proc'].is_alive():
+                            params['active'].remove(active)
                         continue
                     if ttl:
                         if time.time()-active['start'] > ttl:
                             logger.debug('time to live reached')
-                            active['proc'].terminate()
+                            if hasattr(active['proc'], 'terminate'):
+                                active['proc'].terminate()
                             active['proc'].join()
                             active['proc'].is_alive()
                             params['active'].remove(active)
@@ -147,26 +175,31 @@ class TaskMaster(Singleton):
         for worker, params in self.workers.iteritems():
             logger.debug('Starting worker: {0}'.format(worker))
             params['active'] = params.get('active', [])
-            params['RABBITMQ_URL'] = psettings.RABBITMQ_URL
-            params['ERROR_HANDLER'] = psettings.ERROR_HANDLER
-            params['PDF_EXTRACTOR'] = psettings.PDF_EXTRACTOR
+            params['RABBITMQ_URL'] = self.rabbitmq_url
+            params['exchange'] = self.exchange
 
             for par in extra_params:
-
                 logger.debug('Adding extra content: [{0}]: {1}'.format(
                     par, extra_params[par]))
 
                 params[par] = extra_params[par]
-
-            while len(params['active']) < params['concurrency']:
-
+            
+            conc = params.get('concurrency', 1)
+            while len(params['active']) < conc:
                 w = eval('workers.{0}'.format(worker))(params)
-                process = multiprocessing.Process(target=w.run)
+                
+                # decide if we want to run it multiprocessing
+                if conc > 1:
+                    process = multiprocessing.Process(target=w.run)
+                else:
+                    process = threading.Thread(target=w.run, args=())
+                
                 process.daemon = True
                 process.start()
 
                 if verbose:
                     logger.debug('Started {0}-{1}'.format(worker, process.name))
+
                 params['active'].append({
                     'proc': process,
                     'start': time.time(),
@@ -198,7 +231,8 @@ def start_pipeline(params_dictionary=False):
     """
 
     task_master = TaskMaster(psettings.RABBITMQ_URL,
-                    psettings.RABBITMQ_ROUTES,
+                    psettings.EXCHANGE,
+                    psettings.QUEUES,
                     psettings.WORKERS)
 
     task_master.initialize_rabbitmq()
@@ -208,7 +242,8 @@ def start_pipeline(params_dictionary=False):
     signal.signal(signal.SIGTERM, task_master.quit)
 
     # Start the main process in a loop
-    task_master.poll_loop(extra_params=params_dictionary)
+    task_master.poll_loop(extra_params=params_dictionary, 
+                          poll_interval=psettings.POLL_INTERVAL)
 
 
 def main():

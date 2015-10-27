@@ -19,12 +19,15 @@ from .. import importer
 
 
 
-class ClaimIngestWorker(worker.RabbitMQWorker):
+class ClaimsIngestWorker(worker.RabbitMQWorker):
     """
     Checks if a claim exists in the remote ADSWS service.
     """
-
-    def process_payload(self, msg):
+    def __init__(self, params=None):
+        super(ClaimsIngestWorker, self).__init__(params)
+        app.init_app()
+        
+    def process_payload(self, msg, **kwargs):
         """
         Normally, this worker will pro-actively check the remote web
         service, however it will also keep looking into the queue where
@@ -41,8 +44,17 @@ class ClaimIngestWorker(worker.RabbitMQWorker):
             }
         :return: no return
         """
-        d = msg.copy()
-        d.setdefault('provenance', self.__class__.__name__)
-        importer.upsert_claim(**d)
+        msg.setdefault('provenance', self.__class__.__name__)
+        c = importer.create_claim(**msg)
+        if c:
+            with app.scoped_session as session:
+                session.add(c)
+                session.commit()
+            return {'bibcode':c.bibcode, 'orcidid':c.orcidid}
 
+
+class ErrorHandler(worker.RabbitMQWorker):
+    def process_payload(self, msg):
+        pass
+    
 

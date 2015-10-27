@@ -43,21 +43,17 @@ class RabbitMQWorker(object):
         :return: no return
         """
 
-        return_value = False
         try:
             self.connection = pika.BlockingConnection(pika.URLParameters(url))
             self.channel = self.connection.channel()
             if confirm_delivery:
                 self.channel.confirm_delivery()
             self.channel.basic_qos(prefetch_count=1)
-            return_value = True
-
+            return True
         except:
             self.logger.error(sys.exc_info())
             raise Exception(sys.exc_info())
 
-        finally:
-            return return_value
 
     def publish_to_error_queue(self, message, exchange=None, routing_key=None,
                                **kwargs):
@@ -72,10 +68,10 @@ class RabbitMQWorker(object):
         :return: no return
         """
         if not exchange:
-            exchange = self.params['ERROR_HANDLER']['exchange']
+            exchange = self.params.get('exchange', 'ads-orcid')
 
         if not routing_key:
-            routing_key = self.params['ERROR_HANDLER']['routing_key']
+            routing_key = self.params.get('error', 'ads.orcid.error')
 
         self.logger.debug('exchange, routing key: {0}, {1}'.format(routing_key,
                                                                    exchange))
@@ -132,31 +128,15 @@ class RabbitMQWorker(object):
         :return: no return
         """
 
-        for e in self.params['subscribe']:
-            self.logger.debug('Subscribing to: {0}'.format(e['queue']))
-            self.channel.basic_consume(callback, queue=e['queue'], **kwargs)
+        if 'subscribe' in self.params and self.params['subscribe']:
+            self.logger.debug('Subscribing to: {0}'.format(self.params['subscribe']))
+            
+            self.channel.basic_consume(callback, queue=self.params['subscribe'], **kwargs)
 
             if not self.params.get('TEST_RUN', False):
-
                 self.logger.debug('Worker consuming from queue: {0}'.format(
-                    e['queue']))
-
+                    self.params['subscribe']))
                 self.channel.start_consuming()
-
-    def declare_all(self, exchanges, queues, bindings):
-        """
-        Generates all the queues that should exist. These queues are defined in
-        the pipeline settings module.
-
-        :param exchanges: name of the exchanges that should exist
-        :param queues: name of the queues that should exist
-        :param bindings: bindings between exchanges and queues should exist
-        :return: no return
-        """
-
-        [self.channel.exchange_declare(**e) for e in exchanges]
-        [self.channel.queue_declare(**q) for q in queues]
-        [self.channel.queue_bind(**b) for b in bindings]
 
     
     def process_payload(self, payload, 
@@ -182,7 +162,10 @@ class RabbitMQWorker(object):
         message = json.loads(body)
         try:
             self.logger.debug('Running on message')
-            self.results = self.process_payload(message, channel, method_frame, header_frame)
+            self.results = self.process_payload(message, 
+                                                channel=channel, 
+                                                method_frame=method_frame, 
+                                                header_frame=header_frame)
             if self.results:
                 self.publish(self.results, topic=True)
 
@@ -202,4 +185,13 @@ class RabbitMQWorker(object):
         # Send delivery acknowledgement
         self.channel.basic_ack(delivery_tag=method_frame.delivery_tag)
 
-    
+
+    def run(self):
+        """
+        Wrapper function that both connects the worker to the RabbitMQ instance
+        and starts it consuming messages.
+        :return: no return
+        """
+
+        self.connect(self.params['RABBITMQ_URL'])
+        self.subscribe(self.on_message)

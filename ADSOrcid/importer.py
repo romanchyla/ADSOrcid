@@ -8,7 +8,7 @@ import datetime
 
 ALLOWED_STATUS = set(['claimed', 'updated', 'deleted'])
 
-def upsert_claim(bibcode=None, orcidid=None, provenance=None, status=None, date=None):
+def create_claim(bibcode=None, orcidid=None, provenance=None, status=None, date=None):
     """
     Inserts (or updates) ClaimLog entry.
     
