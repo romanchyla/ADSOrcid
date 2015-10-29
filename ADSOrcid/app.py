@@ -23,6 +23,8 @@ def init_app(local_config=None):
     :return None
     """
     
+    if session is not None: # the app was already instantiated
+        return
 
     config.update(utils.load_config())
     if local_config:
@@ -31,7 +33,8 @@ def init_app(local_config=None):
     global logger
     logger = utils.setup_logging(__file__, 'app', config['LOGGING_LEVEL'])
     
-    engine = create_engine(config.get('SQLALCHEMY_URL', 'sqlite:///'))
+    engine = create_engine(config.get('SQLALCHEMY_URL', 'sqlite:///'),
+                           echo=config.get('SQLALCHEMY_ECHO', False))
     session_factory = sessionmaker()
     global session
     session = scoped_session(session_factory)

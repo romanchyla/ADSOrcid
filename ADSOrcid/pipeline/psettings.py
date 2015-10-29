@@ -13,13 +13,27 @@ POLL_INTERVAL = 15  # per-worker poll interval (to check health) in seconds.
 EXCHANGE = 'ads-orcid'
 
 WORKERS = {
-    'ClaimsIngestWorker': {
+    'ClaimsImporter': {
         'concurrency': 1,
-        'subscribe': 'ClaimsQueue',
+        'subscribe': 'ads.orcid.fresh-claims',
         'publish': 'ads.orcid.claims',
         'error': 'ads.orcid.error',
         'durable': True
     },
+    'ClaimsIngester': {
+        'concurrency': 1,
+        'subscribe': 'ads.orcid.claims',
+        'publish': 'ads.orcid.updates',
+        'error': 'ads.orcid.error',
+        'durable': True
+    },
+    'MongoUpdater': {
+        'concurrency': 1,
+        'subscribe': 'ads.orcid.updates',
+        'publish': None,
+        'error': 'ads.orcid.error',
+        'durable': True
+    },   
     'ErrorHandler': {
         'subscribe': None,
         'exchange': None,
@@ -28,16 +42,6 @@ WORKERS = {
     }
 }
 
-QUEUES = {
-    'ImportQueue': {
-            'routing_key': 'ads.orcid.import',
-            'durable': True
-        },
-    'ClaimsQueue': {
-            'routing_key': 'ads.orcid.claims',
-            'durable': True
-        }
-}
 
 
 # For production/testing environment

@@ -28,13 +28,36 @@ class TestMatcherUpdater(test_base.TestUnit):
     Tests the worker's methods
     """
     
+    def tearDown(self):
+        test_base.TestUnit.tearDown(self)
+        Base.metadata.drop_all()
+    
     def create_app(self):
         app.init_app({
-            'SQLALCHEMY_URL': 'sqlite:///'
+            'SQLALCHEMY_URL': 'sqlite:///',
+            'SQLALCHEMY_ECHO': True
         })
         Base.metadata.bind = app.session.get_bind()
         Base.metadata.create_all()
         return app
+    
+    def test_models(self):
+        """Check serialization into JSON"""
+        
+        claim = ClaimsLog(bibcode='foo', orcidid='bar',
+                          created='2009-09-03T20:56:35.450686Z')
+        self.assertDictEqual(claim.toJSON(),
+             {'status': None, 'bibcode': 'foo', 'created': '2009-09-03T20:56:35.450686Z', 'provenance': 'None', 'orcidid': 'bar', 'id': None})
+        
+        ainfo = AuthorInfo(orcidid='bar',
+                          created='2009-09-03T20:56:35.450686Z')
+        
+        self.assertDictEqual(ainfo.toJSON(),
+             {'status': None, 'updated': 'None', 'name': None, 'created': '2009-09-03T20:56:35.450686Z', 'facts': {}, 'orcidid': 'bar', 'id': None, 'account_id': None})
+        
+        rec = Records(bibcode='foo', orcidid='bar', created='2009-09-03T20:56:35.450686Z')
+        self.assertDictEqual(rec.toJSON(),
+             {'status': None, 'bibcode': 'foo', 'created': '2009-09-03T20:56:35.450686Z', 'processed': 'None', 'orcidid': 'bar', 'id': None})
     
     @httpretty.activate
     def test_harvest_author_info(self):
@@ -90,7 +113,13 @@ class TestMatcherUpdater(test_base.TestUnit):
                                     }
                 ) as context:
             author = matcher.retrieve_orcid('0000-0003-2686-9241')
-            self.assertIsInstance(author, AuthorInfo)
+            self.assertDictContainsSubset({'status': None, 
+                                           'name': u'Stern, D K', 
+                                           'facts': {u'author': [u'Stern, D', u'Stern, D K', u'Stern, Daniel'], u'orcid_name': [u'Stern, Daniel'], u'author_norm': [u'Stern, D'], u'name': u'Stern, D K'}, 
+                                           'orcidid': u'0000-0003-2686-9241', 
+                                           'id': 1, 
+                                           'account_id': None}, 
+                                          author)
         
             self.assertTrue(self.app.session.query(AuthorInfo).first().orcidid, '0000-0003-2686-9241')
         
@@ -186,7 +215,26 @@ class TestMatcherUpdater(test_base.TestUnit):
             importer.import_recs(__file__)
             self.assertTrue(len(self.app.session.query(ClaimsLog).all()) == 7)
         
-
-
+    
+    def test_insert_claim(self):
+        """
+        It should be able to create a series of claims
+        """
+        r = importer.insert_claims([
+                    {'bibcode': 'b123456789123456789',
+                     'orcidid': '0000-0000-0000-0001',
+                     'provenance' : 'ads test'},
+                    {'bibcode': 'b123456789123456789',
+                     'orcidid': '0000-0000-0000-0001',
+                     'status' : 'updated'},
+                    importer.create_claim(bibcode='b123456789123456789', 
+                                          orcidid='0000-0000-0000-0001', 
+                                          status='removed')
+                ])
+        self.assertEquals(len(r), 3)
+        
+        self.assertTrue(len(self.app.session.query(ClaimsLog)
+                            .filter_by(bibcode='b123456789123456789').all()) == 3)
+        
 if __name__ == '__main__':
     unittest.main()

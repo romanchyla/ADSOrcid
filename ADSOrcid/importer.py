@@ -1,12 +1,35 @@
 import os 
 import sys
-from .models import ClaimsLog
+from .models import ClaimsLog, Records
 from . import app
 
 import dateutil.parser
 import datetime
 
-ALLOWED_STATUS = set(['claimed', 'updated', 'deleted'])
+ALLOWED_STATUS = set(['claimed', 'updated', 'removed'])
+
+def insert_claims(claims):
+    """
+    Build a batch of claims and saves them into a database
+    
+    :param: claims - list of json values, with claims
+                   - or list of claims (ClaimLog) instances
+    :return number of claims that were successfuly added
+            to the database
+    """
+    res = []
+    with app.session_scope() as session:
+        for c in claims:
+            if isinstance(c, ClaimsLog):
+                claim = c
+            else:
+                claim = create_claim(**c)
+            if claim:
+                session.add(claim)
+                res.append(claim)
+        session.commit()
+        res = [x.toJSON() for x in res]
+    return res
 
 def create_claim(bibcode=None, orcidid=None, provenance=None, status=None, date=None):
     """

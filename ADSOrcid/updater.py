@@ -46,7 +46,8 @@ def update_record(rec, claim):
             
             idx = find_orcid_position(rec['author'], claim[fx])
             if idx > -1:
-                rec[fld_name][idx] = claim['orcidid'] 
+                rec[fld_name][idx] = claim['orcidid']
+                return True 
 
 
 def find_orcid_position(authors_list, name_variants):

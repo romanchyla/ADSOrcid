@@ -106,19 +106,34 @@ class TaskMaster(Singleton):
                         type='topic')
         
         # make sure queues exists
-        for qname, qvals in self.rabbitmq_routes.items():
-            w.channel.queue_declare(
-                        queue=qname, 
-                        passive=False, 
-                        durable=qvals.has_key('durable'), 
-                        exclusive=False, 
-                        auto_delete=False)
-            
-            # make sure messages are properly routed
-            w.channel.queue_bind(
+        if self.rabbitmq_routes:
+            for qname, qvals in self.rabbitmq_routes.items():
+                w.channel.queue_declare(
+                            queue=qname, 
+                            passive=False, 
+                            durable=qvals.has_key('durable') and qvals['durable'], 
+                            exclusive=False, 
+                            auto_delete=False)
+                # make sure messages are properly routed
+                w.channel.queue_bind(
                     queue=qname, 
                     exchange=self.exchange, 
                     routing_key=qvals['routing_key'])
+            
+        for worker in self.workers:
+            if 'subscribe' in worker:
+                w.channel.queue_declare(
+                            queue=worker['subscribe'], 
+                            passive=False,  
+                            exclusive=False, 
+                            auto_delete=False)
+            if 'publish' in worker:
+                w.channel.queue_declare(
+                            queue=worker['publish'], 
+                            passive=False,  
+                            exclusive=False,
+                            durable=worker.has_key('durable') and worker['durable'], 
+                            auto_delete=False)
         
         w.connection.close()
 
@@ -232,7 +247,7 @@ def start_pipeline(params_dictionary=False):
 
     task_master = TaskMaster(psettings.RABBITMQ_URL,
                     psettings.EXCHANGE,
-                    psettings.QUEUES,
+                    'QUEUES' in psettings and psettings.QUEUES or None,
                     psettings.WORKERS)
 
     task_master.initialize_rabbitmq()

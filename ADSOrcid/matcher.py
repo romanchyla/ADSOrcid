@@ -3,9 +3,13 @@ from . import app
 from .models import AuthorInfo
 import requests
 import json
+import cachetools
+import time
+
+cache = cachetools.TTLCache(maxsize=1024, ttl=3600, timer=time.time, missing=None, getsizeof=None)
 
     
-#TODO: add memoize decorator    
+@cachetools.cached(cache)  
 def retrieve_orcid(orcid):
     """
     Finds (or creates and returns) model of ORCID
@@ -22,7 +26,7 @@ def retrieve_orcid(orcid):
         session.add(u)
         session.commit()
         
-        return session.query(AuthorInfo).filter_by(orcidid=orcid).first()
+        return session.query(AuthorInfo).filter_by(orcidid=orcid).first().toJSON()
 
    
 def create_orcid(orcid, name=None, facts=None):

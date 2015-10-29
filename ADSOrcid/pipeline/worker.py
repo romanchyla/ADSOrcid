@@ -16,12 +16,18 @@ class RabbitMQWorker(object):
         :param params: dictionary of parameters
         :return: no return
         """
-
+        params = params or {}
+        
         self.params = params
         self.logger = self.setup_logging()
         self.connection = None
         self.results = None
         self.logger.debug('Initialized')
+        self.exchange = params.get('exchange', None)
+        self.publish_topic = None
+        self.channel = None
+        if 'publish' in self.params and self.params['publish']:
+            self.publish_topic = self.params['publish']
         
 
     def setup_logging(self, level='DEBUG'):
@@ -73,50 +79,36 @@ class RabbitMQWorker(object):
         if not routing_key:
             routing_key = self.params.get('error', 'ads.orcid.error')
 
-        self.logger.debug('exchange, routing key: {0}, {1}'.format(routing_key,
-                                                                   exchange))
+        self.publish(message, topic=routing_key, properties=kwargs['header_frame'])
+        
 
-        self.channel.basic_publish(exchange, routing_key,
-                                   message, properties=kwargs['header_frame'])
-
-
-    def publish(self, message, topic=False, **kwargs):
+    def publish(self, message, topic=None, **kwargs):
         """
         Publishes messages to the queue. Uses the generic template for the
         relevant worker, which is defined in the pipeline settings module.
 
         :param message: message to be publishes
-        :param topic: refers to PDF or StandardFile
+        :param topic: String (the routing key) - overrides this worker's 
+               routing key
         :param kwargs: extra keywords that may be needed
         :return: no return
         """
 
-        if topic:
-            self.logger.debug('Using topic in publish')
-            for key in self.params['publish'].keys():
-                self.logger.debug('Using key: {0}'.format(key))
-                for e in self.params['publish'][key]:
-
-                    if not json.loads(message[key]):
-
-                        self.logger.debug(
-                            '{0} list is empty, not publishing'.format(e))
-
-                        continue
-
-                    self.logger.debug('Using exchange: {0}'.format(e))
-
-                    self.channel.basic_publish(e['exchange'],
-                                               e['routing_key'],
-                                               message[key])
-        else:
-            for e in self.params['publish']:
-
-                self.logger.debug('Basic publish')
-
-                self.channel.basic_publish(e['exchange'],
-                                           e['routing_key'],
-                                           message)
+        if not (topic or self.publish_topic):
+            return
+        
+        if not self.channel:
+            self.logger.error('You must connect to a channel before caling publish()')
+            return
+        
+        self.logger.debug('Publish to {0} using topic {1}'.format(
+                                    self.exchange,
+                                    topic or self.publish_topic))
+        
+        self.channel.basic_publish(exchange=self.exchange,
+                                   routing_key=topic or self.publish_topic,
+                                   body=message)
+        
 
     def subscribe(self, callback, **kwargs):
         """
@@ -130,7 +122,6 @@ class RabbitMQWorker(object):
 
         if 'subscribe' in self.params and self.params['subscribe']:
             self.logger.debug('Subscribing to: {0}'.format(self.params['subscribe']))
-            
             self.channel.basic_consume(callback, queue=self.params['subscribe'], **kwargs)
 
             if not self.params.get('TEST_RUN', False):
@@ -166,9 +157,6 @@ class RabbitMQWorker(object):
                                                 channel=channel, 
                                                 method_frame=method_frame, 
                                                 header_frame=header_frame)
-            if self.results:
-                self.publish(self.results, topic=True)
-
         except Exception, e:
             self.results = 'Offloading to ErrorWorker due to exception:' \
                            ' {0}'.format(e.message)
