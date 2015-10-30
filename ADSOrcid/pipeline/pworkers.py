@@ -8,6 +8,7 @@ from the RabbitMQ class.
 from .. import app
 from . import worker
 from .. import importer, matcher, updater
+from copy import deepcopy
 
 
 
@@ -106,10 +107,26 @@ class MongoUpdater(worker.RabbitMQWorker):
     temporary one, until we have a better (actually new
     one) pipeline
     
+    When ADS Classic data gets synchronized, it *first*
+    mirrors files into the adsdata mongodb collection.
+    After that, the import pipeline is ran. Therefore,
+    we are assuming here that a claim gets registered
+    and will already find the author's in the mongodb.
+    So we update the mongodb, writing into a special 
+    collection 'orcid_claims' -- and the solr updater
+    has to grab data from there when pushing to indexer.
+    
     """
     def __init__(self, params=None):
         super(ClaimsIngester, self).__init__(params)
         app.init_app()
+        self.init_mongo()
+        
+    def init_mongo(self):
+        from pymongo import MongoClient
+        self.mongo = MongoClient(app.config.get('MONGODB_URL'))
+        self.mongodb = self.mongo[app.config.get('MONGODB_DB', 'adsdata')]
+        self.mongocoll = self.mongodb[app.config.get('MONGODB_COLL', 'orcid_claims')]
         
     def process_payload(self, claim, **kwargs):
         """
@@ -125,16 +142,35 @@ class MongoUpdater(worker.RabbitMQWorker):
         :return: no return
         """
         
-        # retrieve mongodb data (check authors are there)
-        rec = {}
+        assert(claim['bibcode'] and claim['orcidid'])
+        bibcode = claim['bibcode'].lower()
         
-        # merge it with existing orcid claims (if any)
+        # retrieve authors (and bail if not available)
+        authors = self.mongocoll.find_one({'_id': bibcode})
+        if not authors:
+            raise Exception('{0} has no authors in the mongodb'.format(bibcode))
+        
+        # find existing claims (if any)
+        orcid_claims = self.mongocoll.find_one({'_id': bibcode})
+        if not orcid_claims:
+            orcid_claims = {}
+        
+        # merge the two
+        rec = {}
+        rec.update(deepcopy(authors))
+        rec.update(deepcopy(orcid_claims))
         
         
         # find the position and update
         if updater.update_record(rec, claim):
-            # save the results back into mongo
-            pass
+            for x in ('orcid_verified', 'orcid_unverified'):
+                if x in rec:
+                    orcid_claims[x] = rec[x]
+            if '_id' in orcid_claims:
+                self.mongocoll.update_one(orcid_claims, {'_id': bibcode})
+            else:
+                orcid_claims['_id'] = bibcode
+                self.mongocoll.insert_one(orcid_claims)
         else:
             raise Exception('Unable to process: {0}'.format(claim))
         

@@ -22,3 +22,5 @@ MIN_LEVENSHTEIN_RATIO = 0.6
 
 # WARN, INFO, DEBUG
 LOGGING_LEVEL = 'DEBUG'
+
+MONGODB_URL = 'mongodb://adsdata:<pass>@adszee:27017/adsdata'

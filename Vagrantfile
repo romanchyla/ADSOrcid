@@ -18,10 +18,11 @@ Vagrant.configure("2") do |config|
   
   config.vm.define "db" do |app|
     app.vm.provider "docker" do |d|
-      d.cmd     = ["/sbin/my_init", "--enable-insecure-key"]
+      d.cmd     = ["/sbin/my_init", "--enable-insecure-key", "--", "/usr/bin/mongod"]
       d.build_dir = "manifests/development/db"
       d.has_ssh = true
       d.name = "db"
+      d.ports = ["29017:27017"]
     end
   end
   
