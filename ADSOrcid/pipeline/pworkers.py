@@ -146,7 +146,7 @@ class MongoUpdater(worker.RabbitMQWorker):
         bibcode = claim['bibcode'].lower()
         
         # retrieve authors (and bail if not available)
-        authors = self.mongocoll.find_one({'_id': bibcode})
+        authors = self.mongodb['authors'].find_one({'_id': bibcode})
         if not authors:
             raise Exception('{0} has no authors in the mongodb'.format(bibcode))
         
@@ -167,7 +167,7 @@ class MongoUpdater(worker.RabbitMQWorker):
                 if x in rec:
                     orcid_claims[x] = rec[x]
             if '_id' in orcid_claims:
-                self.mongocoll.update_one(orcid_claims, {'_id': bibcode})
+                self.mongocoll.replace_one({'_id': bibcode}, orcid_claims)
             else:
                 orcid_claims['_id'] = bibcode
                 self.mongocoll.insert_one(orcid_claims)
