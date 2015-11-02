@@ -10,8 +10,9 @@ import os
 import unittest
 import time
 import json
-from ADSOrcid import utils
-from ..pipeline import psettings, pstart
+import pika
+from ADSOrcid import utils, app
+from ..pipeline import pstart
 from ..pipeline import worker
 
 
@@ -32,11 +33,12 @@ class TestUnit(unittest.TestCase):
                          'ADSOrcid/tests/test_integration')
         config['TEST_FUNC_DIR'] = os.path.join(config['PROJ_HOME'],
                          'ADSOrcid/tests/test_functional')
-        self.config = config
+
         self.app = self.create_app()
+        self.app.config.update(config)
 
 
-class TestFunctional(unittest.TestCase):
+class TestFunctional(TestUnit):
     """
     Generic test class. Used as the primary class that implements a standard
     integration test. Also contains a range of helper functions, and the correct
@@ -52,17 +54,25 @@ class TestFunctional(unittest.TestCase):
         :return: no return
         """
         
-
+        super(TestFunctional, self).setUp()
+        
         # Queues and routes are switched on so that they can allow workers
         # to connect
-        TM = pstart.TaskMaster(psettings.RABBITMQ_URL,
+        app = self.app
+        TM = pstart.TaskMaster(app.config.get('RABBITMQ_URL'),
                         'ads-orcid-test',
-                        psettings.QUEUES,
-                        psettings.WORKERS)
+                        app.config.get('QUEUES'),
+                        app.config.get('WORKERS'))
         TM.initialize_rabbitmq()
 
+        self.TM = TM
         self.connect_publisher()
         self.purge_all_queues()
+        
+    def create_app(self):
+        """Does not mess with a db, it expects it to exist"""
+        app.init_app()
+        return app
 
     def connect_publisher(self):
         """
@@ -73,17 +83,22 @@ class TestFunctional(unittest.TestCase):
         """
 
         self.publish_worker = worker.RabbitMQWorker()
-        self.ret_queue = self.publish_worker.connect(psettings.RABBITMQ_URL)
+        self.ret_queue = self.publish_worker.connect(self.app.config.get('RABBITMQ_URL'))
 
+        
     def purge_all_queues(self):
         """
-        Purges all the content from all the queues existing in psettings.py.
+        Purges all the content from all the queues
 
         :return: no return
         """
-        for queue in psettings.QUEUES:
-            _q = queue['queue']
-            self.publish_worker.channel.queue_purge(queue=_q)
+        for worker, wconfig in self.app.config.get('WORKERS').iteritems():
+            for x in ('publish', 'subscribe'):
+                if x in wconfig and wconfig[x]:
+                    try:
+                        self.publish_worker.channel.queue_purge(queue=wconfig[x])
+                    except pika.exceptions.ChannelClosed, e:
+                        pass
 
     def tearDown(self):
         """
@@ -94,6 +109,7 @@ class TestFunctional(unittest.TestCase):
         """
 
         self.purge_all_queues()
+        self.TM = None
         time.sleep(5)
 
 

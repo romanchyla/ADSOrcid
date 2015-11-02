@@ -28,18 +28,20 @@ def update_record(rec, claim):
     assert(isinstance(claim, dict))
     assert('author' in rec)
     
-    fld_name = 'orcid_unverified'
+    fld_name = 'unverified'
     if 'accnt_id' in claim: # the claim was made by ADS verified user
-        fld_name = 'orcid_verified'
+        fld_name = 'verified'
     
     num_authors = len(rec['author'])
     
-    if fld_name not in rec:
+    if fld_name not in rec or rec[fld_name] is None:
         rec[fld_name] = ['-'] * num_authors
+    elif len(rec[fld_name]) < num_authors: # check the lenght is correct
+        rec[fld_name] += ['-'] * (len(rec[fld_name]) - num_authors)
     
     # search using descending priority
     for fx in ('author', 'orcid_name', 'author_norm'):
-        if fx in rec:
+        if fx in rec and fx in claim:
             
             assert(isinstance(rec['author'], list))
             assert(isinstance(claim[fx], list))

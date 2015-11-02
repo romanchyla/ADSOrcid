@@ -12,19 +12,20 @@ import sys
 import os
 
 
-import psettings
 import multiprocessing
 import threading
 import time
 import signal
 import sys
+import os
+from ADSOrcid import app
 from ADSOrcid.pipeline import pworkers as workers
 from ADSOrcid.pipeline.worker import RabbitMQWorker
 from ADSOrcid.utils import setup_logging
 from copy import deepcopy
 
 
-logger = setup_logging(__file__, __name__)
+logger = setup_logging(os.path.abspath(os.path.join(__file__, '..')), __name__)
 
 
 class Singleton(object):
@@ -180,7 +181,7 @@ class TaskMaster(Singleton):
     def start_workers(self, verbose=True, extra_params=False):
         """
         Starts the workers and the relevant number of them wanted by the user,
-        which is defined with the pipeline settings module, psettings.py.
+        which is defined with the app config
 
         :param verbose: if the messages should be verbose
         :param extra_params: other parameters
@@ -235,7 +236,7 @@ class TaskMaster(Singleton):
         pass
 
 
-def start_pipeline(params_dictionary=False):
+def start_pipeline(params_dictionary=False, application=None):
     """
     Starts the TaskMaster that starts the queues needed for full text
     extraction. Defines how the system can be stopped, and begins the polling
@@ -244,11 +245,13 @@ def start_pipeline(params_dictionary=False):
     :param params_dictionary: parameters needed for the workers and polling
     :return: no return
     """
-
-    task_master = TaskMaster(psettings.RABBITMQ_URL,
-                    psettings.EXCHANGE,
-                    'QUEUES' in psettings and psettings.QUEUES or None,
-                    psettings.WORKERS)
+    
+    app = application or app
+    
+    task_master = TaskMaster(app.config.get('RABBITMQ_URL'),
+                    app.config.get('EXCHANGE'),
+                    app.config.get('QUEUES', None),
+                    app.config.get('WORKERS'))
 
     task_master.initialize_rabbitmq()
     task_master.start_workers(extra_params=params_dictionary)
@@ -258,7 +261,7 @@ def start_pipeline(params_dictionary=False):
 
     # Start the main process in a loop
     task_master.poll_loop(extra_params=params_dictionary, 
-                          poll_interval=psettings.POLL_INTERVAL)
+                          poll_interval=app.config.get('POLL_INTERVAL', 15))
 
 
 def main():
@@ -282,7 +285,9 @@ def main():
     args = parser.parse_args()
 
     params_dictionary = {'TEST_RUN': args.test_run}
-    start_pipeline(params_dictionary)
+    
+    app.init_app()
+    start_pipeline(params_dictionary, app)
 
 
 if __name__ == '__main__':

@@ -118,7 +118,7 @@ class MongoUpdater(worker.RabbitMQWorker):
     
     """
     def __init__(self, params=None):
-        super(ClaimsIngester, self).__init__(params)
+        super(MongoUpdater, self).__init__(params)
         app.init_app()
         self.init_mongo()
         
@@ -163,7 +163,7 @@ class MongoUpdater(worker.RabbitMQWorker):
         
         # find the position and update
         if updater.update_record(rec, claim):
-            for x in ('orcid_verified', 'orcid_unverified'):
+            for x in ('verified', 'unverified'):
                 if x in rec:
                     orcid_claims[x] = rec[x]
             if '_id' in orcid_claims:
@@ -171,6 +171,7 @@ class MongoUpdater(worker.RabbitMQWorker):
             else:
                 orcid_claims['_id'] = bibcode
                 self.mongocoll.insert_one(orcid_claims)
+            return True
         else:
             raise Exception('Unable to process: {0}'.format(claim))
         

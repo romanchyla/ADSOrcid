@@ -162,7 +162,7 @@ class TestMatcherUpdater(test_base.TestUnit):
            'name': u'Stern, D K' 
           }                          
         )
-        self.assertEqual(doc['orcid_verified'], 
+        self.assertEqual(doc['verified'], 
             ['-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '0000-0003-2686-9241', '-'])
         
         
