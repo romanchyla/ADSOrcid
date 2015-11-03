@@ -53,6 +53,7 @@ class TestPipeline(test_base.TestFunctional):
         v = worker.mongodb[self.app.config.get('MONGODB_COLL', 'orcid_claims')].find_one({'_id': 'bibcode'})
         self.assertEquals(v['unverified'], [u'foobaz', u'-', u'foobar'])
 
+
     def xtest_functionality_on_new_claim(self):
         """
         Main test, it pretends we have received claims from the 
