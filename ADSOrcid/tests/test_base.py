@@ -67,12 +67,14 @@ class TestFunctional(TestUnit):
 
         self.TM = TM
         self.connect_publisher()
-        self.purge_all_queues()
+        self.TM.start_workers(verbose=True)
+        
         
     def create_app(self):
         """Does not mess with a db, it expects it to exist"""
         app.init_app()
         return app
+    
 
     def connect_publisher(self):
         """
@@ -96,9 +98,10 @@ class TestFunctional(TestUnit):
             for x in ('publish', 'subscribe'):
                 if x in wconfig and wconfig[x]:
                     try:
-                        self.publish_worker.channel.queue_purge(queue=wconfig[x])
+                        self.publish_worker.channel.queue_delete(queue=wconfig[x])
                     except pika.exceptions.ChannelClosed, e:
                         pass
+        self.publish_worker.channel.exchange_delete(self.TM.exchange, if_unused=True)
 
     def tearDown(self):
         """
@@ -109,8 +112,9 @@ class TestFunctional(TestUnit):
         """
 
         self.purge_all_queues()
+        self.TM.stop_workers()
         self.TM = None
-        time.sleep(5)
+        
 
 
 

@@ -88,7 +88,10 @@ class ClaimsIngester(worker.RabbitMQWorker):
             raise Exception('Unable to retrieve info for {0}'.format(msg['orcidid']))
         
         msg['name'] = author['name']
-        msg['facts'] = author['facts']
+        if author.get('facts', None):
+            for k, v in author['facts'].iteritems():
+                msg[k] = v
+                
         msg['author_status'] = author['status']
         msg['account_id'] = author['account_id']
         msg['author_updated'] = author['updated']
@@ -143,7 +146,7 @@ class MongoUpdater(worker.RabbitMQWorker):
         """
         
         assert(claim['bibcode'] and claim['orcidid'])
-        bibcode = claim['bibcode'].lower()
+        bibcode = claim['bibcode']
         
         # retrieve authors (and bail if not available)
         authors = self.mongodb['authors'].find_one({'_id': bibcode})

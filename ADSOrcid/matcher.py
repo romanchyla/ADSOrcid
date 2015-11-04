@@ -7,7 +7,7 @@ import cachetools
 import time
 
 cache = cachetools.TTLCache(maxsize=1024, ttl=3600, timer=time.time, missing=None, getsizeof=None)
-
+orcid_cache = cachetools.TTLCache(maxsize=1024, ttl=3600, timer=time.time, missing=None, getsizeof=None)
     
 @cachetools.cached(cache)  
 def retrieve_orcid(orcid):
@@ -28,6 +28,14 @@ def retrieve_orcid(orcid):
         
         return session.query(AuthorInfo).filter_by(orcidid=orcid).first().toJSON()
 
+@cachetools.cached(orcid_cache)
+def get_public_orcid_profile(orcidid):
+    r = requests.get(config.get('API_ORCID_PROFILE_ENDPOINT') % orcidid,
+                 headers={'Accept': 'application/json'})
+    if r.status_code != 200:
+        return None
+    else:
+        return r.json()
    
 def create_orcid(orcid, name=None, facts=None):
     """
@@ -74,14 +82,12 @@ def harvest_author_info(orcidid, name=None, facts=None):
     author_data = {}
     
     # first verify the public ORCID profile
-    r = requests.get(config.get('API_ORCID_PROFILE_ENDPOINT') % orcidid,
-                 headers={'Accept': 'application/json'})
-    if r.status_code != 200:
+    j = get_public_orcid_profile(orcidid)
+    if j is None:
         app.logger.error('We cant verify public profile of: http://orcid.org/%s' % orcidid)
     else:
         # we don't trust (the ugly) ORCID profiles too much
         # j['orcid-profile']['orcid-bio']['personal-details']['family-name']
-        j = r.json()
         if 'orcid-profile' in j and 'orcid-bio' in j['orcid-profile'] \
             and 'personal-details' in j['orcid-profile']['orcid-bio'] and \
             'family-name' in j['orcid-profile']['orcid-bio']['personal-details'] and \
@@ -90,7 +96,7 @@ def harvest_author_info(orcidid, name=None, facts=None):
             author_data['orcid_name'] = ['%s, %s' % \
                 (j['orcid-profile']['orcid-bio']['personal-details']['family-name']['value'],
                  j['orcid-profile']['orcid-bio']['personal-details']['given-names']['value'])]
-                
+            author_data['name'] = author_data['orcid_name'][0]
                 
     # search for the orcidid in our database (but only the publisher populated fiels)
     # we can't trust other fiels to bootstrap our database
@@ -98,7 +104,7 @@ def harvest_author_info(orcidid, name=None, facts=None):
                 '%(endpoint)s?q=%(query)s&fl=author,author_norm,orcid&rows=100&sort=pubdate+desc' % \
                 {
                  'endpoint': config.get('API_SOLR_QUERY_ENDPOINT'),
-                 'query' : 'orcid_publisher:%s' % cleanup_orcidid(orcidid),
+                 'query' : 'orcid:%s' % cleanup_orcidid(orcidid),
                 },
                 headers={'Authorization': 'Bearer:%s' % config.get('API_TOKEN')})
     

@@ -26,13 +26,14 @@ def update_record(rec, claim):
     """
     assert(isinstance(rec, dict))
     assert(isinstance(claim, dict))
-    assert('author' in rec)
+    assert('authors' in rec)
+    assert(isinstance(rec['authors'], list))
     
     fld_name = 'unverified'
     if 'accnt_id' in claim: # the claim was made by ADS verified user
         fld_name = 'verified'
     
-    num_authors = len(rec['author'])
+    num_authors = len(rec['authors'])
     
     if fld_name not in rec or rec[fld_name] is None:
         rec[fld_name] = ['-'] * num_authors
@@ -41,12 +42,11 @@ def update_record(rec, claim):
     
     # search using descending priority
     for fx in ('author', 'orcid_name', 'author_norm'):
-        if fx in rec and fx in claim:
+        if fx in claim and claim[fx]:
             
-            assert(isinstance(rec['author'], list))
             assert(isinstance(claim[fx], list))
             
-            idx = find_orcid_position(rec['author'], claim[fx])
+            idx = find_orcid_position(rec['authors'], claim[fx])
             if idx > -1:
                 rec[fld_name][idx] = claim['orcidid']
                 return True 

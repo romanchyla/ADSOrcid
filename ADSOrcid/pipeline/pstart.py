@@ -107,34 +107,59 @@ class TaskMaster(Singleton):
                         type='topic')
         
         # make sure queues exists
+        queues = {}
         if self.rabbitmq_routes:
             for qname, qvals in self.rabbitmq_routes.items():
+                if qname not in queues:
+                    queues[qname] = qvals.has_key('durable') and qvals['durable']
                 w.channel.queue_declare(
                             queue=qname, 
                             passive=False, 
-                            durable=qvals.has_key('durable') and qvals['durable'], 
+                            durable=queues[qname], 
                             exclusive=False, 
                             auto_delete=False)
                 # make sure messages are properly routed
                 w.channel.queue_bind(
                     queue=qname, 
                     exchange=self.exchange, 
-                    routing_key=qvals['routing_key'])
+                    routing_key=qvals['routing_key'] or qname)
             
-        for worker in self.workers:
-            if 'subscribe' in worker:
+        for worker in self.workers.values():
+            if worker.get('subscribe', None):
+                qname = worker['subscribe']
+                if qname not in queues:
+                    queues[qname] = worker.has_key('durable') and worker['durable']
+                    
                 w.channel.queue_declare(
-                            queue=worker['subscribe'], 
+                            queue=worker['subscribe'],
+                            durable = queues[qname], 
                             passive=False,  
                             exclusive=False, 
                             auto_delete=False)
-            if 'publish' in worker:
+                
+                # make sure messages are properly routed
+                w.channel.queue_bind(
+                    queue=qname, 
+                    exchange=self.exchange, 
+                    routing_key=qname)
+                
+            if worker.get('publish', None):
+                qname = worker['publish']
+                if qname not in queues:
+                    queues[qname] = worker.has_key('durable') and worker['durable']
+
                 w.channel.queue_declare(
                             queue=worker['publish'], 
                             passive=False,  
                             exclusive=False,
-                            durable=worker.has_key('durable') and worker['durable'], 
+                            durable=queues[qname], 
                             auto_delete=False)
+                
+                # make sure messages are properly routed
+                w.channel.queue_bind(
+                    queue=qname, 
+                    exchange=self.exchange, 
+                    routing_key=qname)
         
         w.connection.close()
 
@@ -193,12 +218,13 @@ class TaskMaster(Singleton):
             params['active'] = params.get('active', [])
             params['RABBITMQ_URL'] = self.rabbitmq_url
             params['exchange'] = self.exchange
-
-            for par in extra_params:
-                logger.debug('Adding extra content: [{0}]: {1}'.format(
-                    par, extra_params[par]))
-
-                params[par] = extra_params[par]
+            
+            if isinstance(extra_params, dict):
+                for par in extra_params:
+                    logger.debug('Adding extra content: [{0}]: {1}'.format(
+                        par, extra_params[par]))
+    
+                    params[par] = extra_params[par]
             
             conc = params.get('concurrency', 1)
             while len(params['active']) < conc:

@@ -8,8 +8,10 @@ It then shuts down all of the workers.
 
 
 import unittest
+import time
 from ADSOrcid.tests import test_base
-from ADSOrcid.pipeline import pworkers
+from ADSOrcid.pipeline import pworkers, worker
+from ADSOrcid import app, models
 
 class TestPipeline(test_base.TestFunctional):
     """
@@ -32,7 +34,7 @@ class TestPipeline(test_base.TestFunctional):
         worker.mongodb[self.app.config.get('MONGODB_COLL', 'orcid_claims')].remove({'_id': 'bibcode'})
         
         # a test record
-        worker.mongodb['authors'].insert({'_id': 'bibcode', 'author': ['Huchra, J', 'Einstein, A', 'Neumann, John']})
+        worker.mongodb['authors'].insert({'_id': 'bibcode', 'authors': ['Huchra, J', 'Einstein, A', 'Neumann, John']})
         
         v = worker.process_payload({'bibcode': 'bibcode',
             'orcidid': 'foobar',
@@ -54,15 +56,61 @@ class TestPipeline(test_base.TestFunctional):
         self.assertEquals(v['unverified'], [u'foobaz', u'-', u'foobar'])
 
 
-    def xtest_functionality_on_new_claim(self):
+    def test_functionality_on_new_claim(self):
         """
         Main test, it pretends we have received claims from the 
         ADSWS
-
+        
+        For this, you need to have 'db' and 'rabbitmq' containers running.
         :return: no return
         """
+        
+        # clean the slate (production: 0000-0003-3041-2092, staging: 0000-0001-8178-9506) 
+        with app.session_scope() as session:
+            session.query(models.AuthorInfo).filter_by(orcidid='0000-0003-3041-2092').delete()
+            session.query(models.ClaimsLog).filter_by(orcidid='0000-0003-3041-2092').delete()
+            session.query(models.Records).filter_by(bibcode='2015ASPC..495..401C').delete()
+            
+        # setup/check the MongoDB has the proper data for authors
+        mworker = pworkers.MongoUpdater()
+        mworker.mongodb[self.app.config.get('MONGODB_COLL', 'orcid_claims')].remove({'_id': '2015ASPC..495..401C'})
+        r = mworker.mongodb['authors'].find_one({'_id': '2015ASPC..495..401C'})
+        if not r or 'authors' not in r:
+            mworker.mongodb['authors'].insert({
+                "_id" : "2015ASPC..495..401C",
+                "authors" : [
+                    "Chyla, R",
+                    "Accomazzi, A",
+                    "Holachek, A",
+                    "Grant, C",
+                    "Elliott, J",
+                    "Henneken, E",
+                    "Thompson, D",
+                    "Kurtz, M",
+                    "Murray, S",
+                    "Sudilovsky, V"
+                ]
+            })
 
-        pass
+        
+        
+        
+        test_worker = worker.RabbitMQWorker(params={
+                            'publish': 'ads.orcid.fresh-claims',
+                            'exchange': 'ads-orcid-test'
+                        })
+        test_worker.connect(self.TM.rabbitmq_url)
+        
+        # send a test claim
+        test_worker.publish({'orcidid': '0000-0003-3041-2092', 'bibcode': '2015ASPC..495..401C'})
+        
+        time.sleep(2)
+        
+        # check results
+        claim = mworker.mongodb[self.app.config.get('MONGODB_COLL', 'orcid_claims')].find_one({'_id': '2015ASPC..495..401C'})
+        self.assertEquals(claim['unverified'],
+                          ['0000-0003-3041-2092', '-','-','-','-','-','-','-','-','-', ] 
+                          )
 
 if __name__ == '__main__':
     unittest.main()

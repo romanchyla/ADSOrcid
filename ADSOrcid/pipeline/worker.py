@@ -105,6 +105,8 @@ class RabbitMQWorker(object):
                                     self.exchange,
                                     topic or self.publish_topic))
         
+        if not isinstance(message, basestring):
+            message = json.dumps(message)
         self.channel.basic_publish(exchange=self.exchange,
                                    routing_key=topic or self.publish_topic,
                                    body=message)

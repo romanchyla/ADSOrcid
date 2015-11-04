@@ -55,9 +55,10 @@ class TestMatcherUpdater(test_base.TestUnit):
         self.assertDictEqual(ainfo.toJSON(),
              {'status': None, 'updated': 'None', 'name': None, 'created': '2009-09-03T20:56:35.450686Z', 'facts': {}, 'orcidid': 'bar', 'id': None, 'account_id': None})
         
-        rec = Records(bibcode='foo', orcidid='bar', created='2009-09-03T20:56:35.450686Z')
+        rec = Records(bibcode='foo', created='2009-09-03T20:56:35.450686Z')
+
         self.assertDictEqual(rec.toJSON(),
-             {'status': None, 'bibcode': 'foo', 'created': '2009-09-03T20:56:35.450686Z', 'processed': 'None', 'orcidid': 'bar', 'id': None})
+             {'status': None, 'bibcode': 'foo', 'created': '2009-09-03T20:56:35.450686Z', 'processed': 'None', 'claims': {}, 'id': None})
     
     @httpretty.activate
     def test_harvest_author_info(self):
@@ -71,11 +72,11 @@ class TestMatcherUpdater(test_base.TestUnit):
         httpretty.register_uri(
             httpretty.GET, self.app.config['API_ORCID_PROFILE_ENDPOINT'] % orcidid,
             content_type='application/json',
-            body=open(os.path.join(self.config['TEST_UNIT_DIR'], 'stub_data', orcidid + '.orcid.json')).read())
+            body=open(os.path.join(self.app.config['TEST_UNIT_DIR'], 'stub_data', orcidid + '.orcid.json')).read())
         httpretty.register_uri(
             httpretty.GET, self.app.config['API_SOLR_QUERY_ENDPOINT'],
             content_type='application/json',
-            body=open(os.path.join(self.config['TEST_UNIT_DIR'], 'stub_data', orcidid + '.solr.json')).read())
+            body=open(os.path.join(self.app.config['TEST_UNIT_DIR'], 'stub_data', orcidid + '.solr.json')).read())
         
         data = matcher.harvest_author_info(orcidid)
         self.assertDictEqual(data, {'orcid_name': [u'Stern, Daniel'],
@@ -133,7 +134,7 @@ class TestMatcherUpdater(test_base.TestUnit):
         
         doc = {
             'bibcode': '2015ApJ...799..123B', 
-            'author': [
+            'authors': [
               "Barrière, Nicolas M.",
               "Krivonos, Roman",
               "Tomsick, John A.",

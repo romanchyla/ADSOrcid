@@ -90,7 +90,9 @@ class TestWorkers(test_base.TestUnit):
                                 'orcidid': '0000-0003-2686-9241', 
                                 'id': 1,
                                 'name': 'Stern, D K',
-                                'facts': {u'author': [u'Stern, D', u'Stern, D K', u'Stern, Daniel'], u'orcid_name': [u'Stern, Daniel'], u'author_norm': [u'Stern, D'], u'name': u'Stern, D K'},
+                                'author': [u'Stern, D', u'Stern, D K', u'Stern, Daniel'], 
+                                'orcid_name': [u'Stern, Daniel'], 
+                                'author_norm': [u'Stern, D'],
                                 'author_id': 1,
                                 'account_id': None,
                                 'author_status': None
