@@ -43,3 +43,7 @@ WORKDIR /data
 # variable has to be set there (essentially, runtime config for Docker)
 EXPOSE 5672
 EXPOSE 15672
+
+RUN mkdir -p /etc/service/rabbitmq
+RUN echo "#!/bin/bash\nexec /usr/local/bin/rabbitmq-start" > /etc/service/rabbitmq/run
+RUN chmod +x /etc/service/rabbitmq/run

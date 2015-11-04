@@ -45,15 +45,16 @@ class ClaimsLog(Base):
 class Records(Base):
     __tablename__ = 'records'
     id = Column(Integer, primary_key=True)
-    orcidid = Column(String(19))
     bibcode = Column(String(19))
+    claims = Column(Text)
     created = Column(TIMESTAMP, default=datetime.datetime.utcnow)
     processed = Column(TIMESTAMP)
     status = Column(String(255))
     
     def toJSON(self):
-        return {'id': self.id, 'orcidid': self.orcidid,
-                'bibcode': self.bibcode, 'status': self.status,
+        return {'id': self.id, 'bibcode': self.bibcode,
+                'claims': self.claims and json.loads(self.claims) or {},
+                'status': self.status,
                 'created': str(self.created), 'processed': str(self.processed)
                 }
 
