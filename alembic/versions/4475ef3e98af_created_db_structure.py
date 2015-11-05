@@ -50,8 +50,10 @@ def upgrade():
         Column('bibcode', String(19), unique=True, nullable=False),
         Column('status', String(255)),
         Column('claims', Text),
-        Column('created', TIMESTAMP, default=datetime.datetime.utcnow),
+        Column('created', TIMESTAMP),
+        Column('updated', TIMESTAMP, default=datetime.datetime.utcnow),
         Column('processed', TIMESTAMP),
+        Index('ix_recs_updated', 'updated'),
         Index('ix_recs_created', 'created'),
         Index('ix_processed', 'processed')
     )

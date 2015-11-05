@@ -111,6 +111,13 @@ class TestPipeline(test_base.TestFunctional):
         self.assertEquals(claim['unverified'],
                           ['0000-0003-3041-2092', '-','-','-','-','-','-','-','-','-', ] 
                           )
+        
+        with app.session_scope() as session:
+            r = session.query(models.Records).filter_by(bibcode='2015ASPC..495..401C')
+            self.assertEquals(r.claims,
+                              ['0000-0003-3041-2092', '-','-','-','-','-','-','-','-','-', ] 
+                              )
+            
 
 if __name__ == '__main__':
     unittest.main()

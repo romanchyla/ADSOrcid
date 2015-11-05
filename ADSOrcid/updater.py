@@ -6,6 +6,57 @@ we just deal with the logic; not with the queue)
 import Levenshtein
 from . import matcher
 import app
+import json
+from .models import Records
+import datetime
+
+
+def record_claims(bibcode, claims):
+    """
+    Stores results of the processing in the database (this is purely
+    for book-keeping purposes; and should happen after the data was
+    written to the pipeline. However, in the future we can use these
+    records to build the document for indexing
+    
+    :param: bibcode
+    :type: string
+    :param: claims, as stored in the mongo
+    :type: dict
+    """
+    with app.session_scope() as session:
+        if not isinstance(claims, basestring):
+            claims = json.dumps(claims)
+        r = session.query(Records).filter_by(bibcode=bibcode).first()
+        if r is None:
+            t = datetime.datetime.utcnow()
+            r = Records(bibcode=bibcode, claims=claims, 
+                        created=t,
+                        updated=t,
+                        )
+            session.add(r)
+        else:
+            r.updated = datetime.datetime.now()
+            r.claims = claims
+            session.merge(r)
+        session.commit()
+        
+def mark_processed(bibcode):
+    """Updates the date on which the record has been processed (i.e.
+    something has consumed it
+    
+    :param: bibcode
+    :type: str
+    
+    :return: None
+    """
+    
+    with app.session_scope() as session:
+        r = session.query(Records).filter_by(bibcode=bibcode).first()
+        if r is None:
+            raise Exception('Nonexistant record for {0}'.format(bibcode))
+        r.processed = datetime.datetime.utcnow()
+        session.commit()
+        return True        
 
 def update_record(rec, claim):
     """

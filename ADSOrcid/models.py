@@ -22,7 +22,7 @@ class AuthorInfo(Base):
         return {'id': self.id, 'orcidid': self.orcidid,
                 'name': self.name, 'facts': self.facts and json.loads(self.facts) or {},
                 'status': self.status, 'account_id': self.account_id,
-                'created': str(self.created), 'updated': str(self.updated)
+                'created': self.created and str(self.created) or None, 'updated': self.updated and str(self.updated) or None
                 }
     
     
@@ -38,7 +38,7 @@ class ClaimsLog(Base):
     def toJSON(self):
         return {'id': self.id, 'orcidid': self.orcidid,
                 'bibcode': self.bibcode, 'status': self.status,
-                'provenance': str(self.provenance), 'created': str(self.created)
+                'provenance': str(self.provenance), 'created': self.created and str(self.created) or None
                 }
 
     
@@ -47,15 +47,15 @@ class Records(Base):
     id = Column(Integer, primary_key=True)
     bibcode = Column(String(19))
     claims = Column(Text)
-    created = Column(TIMESTAMP, default=datetime.datetime.utcnow)
+    created = Column(TIMESTAMP)
+    updated = Column(TIMESTAMP, default=datetime.datetime.utcnow)
     processed = Column(TIMESTAMP)
-    status = Column(String(255))
     
     def toJSON(self):
         return {'id': self.id, 'bibcode': self.bibcode,
                 'claims': self.claims and json.loads(self.claims) or {},
-                'status': self.status,
-                'created': str(self.created), 'processed': str(self.processed)
+                'created': self.created and str(self.created) or None, 'updated': self.updated and str(self.updated) or None, 
+                'processed': self.processed and str(self.processed) or None
                 }
 
     
