@@ -24,6 +24,7 @@ RABBITMQ_URL = 'amqp://guest:guest@localhost:6672/?' \
 API_ENDPOINT = 'https://api.adsabs.harvard.edu'
 API_SOLR_QUERY_ENDPOINT = API_ENDPOINT + '/v1/search/query/'
 API_ORCID_EXPORT_PROFILE = API_ENDPOINT + '/v1/orcid/get-profile/%s'
+API_ORCID_UPDATES_ENDPOINT = API_ENDPOINT + '/v1/orcid/export/%s'
 API_TOKEN = 'fixme'
 
 # The ORCID API public endpoint

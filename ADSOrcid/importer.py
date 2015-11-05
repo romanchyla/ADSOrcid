@@ -38,7 +38,7 @@ def create_claim(bibcode=None, orcidid=None, provenance=None, status=None, date=
     :return: ClaimsLog instance (however this is only for reading, you should
         not try to do anything with it; the session will have been closed already)
     """
-    assert(bibcode and orcidid)
+    assert(orcidid)
     if isinstance(date, basestring):
         date = dateutil.parser.parse(date)
     if status and status.lower() not in ALLOWED_STATUS:

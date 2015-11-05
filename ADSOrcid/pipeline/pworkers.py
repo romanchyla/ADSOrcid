@@ -48,46 +48,47 @@ class ClaimsImporter(worker.RabbitMQWorker):
                 
                 # increase the timestamp by one microsec and get new updates
                 latest_point = latest_point + datetime.timedelta(microseconds=1)
-                r = requests.get(app.config.get('API_ORCID_EXPORT_PROFILE') % latest_point.isoformat(),
+                r = requests.get(app.config.get('API_ORCID_UPDATES_ENDPOINT') % latest_point.isoformat(),
                              headers = {'Authorization': 'Bearer {0}'.format(app.config.get('API_TOKEN'))})
                 
                 if r.status_code != 200:
                     self.logger.error('Failed getting {0}\n{1}'.format(
-                                app.config.get('API_ORCID_EXPORT_PROFILE') % kv.value,
+                                app.config.get('API_ORCID_UPDATES_ENDPOINT') % kv.value,
                                 r.text))
                     return
                 
                 # we received the data, immediately update the databaes (so that other processes don't 
                 # ask for the same starting date)
                 data = r.json()
-                kv.value = data[0]['updated']
+                kv.value = data[0]['updated'] #date in isoformat
                 session.merge(kv)
                 session.commit()
                 
                 to_claim = []
                 for rec in data: # each rec is orcid:profile
                     
-                    orcidid = data['orcid_id']
+                    orcidid = rec['orcid_id']
                     
-                    if not 'profile' in data:
+                    if not 'profile' in rec:
                         self.logger.error('Skipping (because of missing profile) {0}'.format(data['orcid_id']))
                         continue
                     #else: TODO: retrieve the fresh profile
                     
                     # orcid is THE ugliest datastructure of today!
-                    profile = json.loads(data['profile'])
+                    profile = rec['profile']
                     try:
                         works = profile['orcid-profile']['orcid-activities']['orcid-works']['orcid-work']
                     except KeyError:
                         continue
                     
                     # find the most recent #full-import record
-                    last_update = session.query(ClaimsLog).filter_by(
+                    last_update = session.query(ClaimsLog).filter(
                         and_(ClaimsLog.status == '#full-import', ClaimsLog.orcidid == orcidid)
                         ).order_by(ClaimsLog.id.desc()).first()
                         
                     if last_update is None:
                         q = session.query(ClaimsLog).filter_by(orcidid=orcidid).order_by(ClaimsLog.id.asc())
+                        updt = datetime.datetime.utcnow()
                     else:
                         # check we haven't seen this very profile already
                         try:
@@ -99,7 +100,7 @@ class ClaimsImporter(worker.RabbitMQWorker):
                         except KeyError:
                             updt = datetime.datetime.utcnow()
                         
-                        q = session.query(ClaimsLog).filter_by(
+                        q = session.query(ClaimsLog).filter(
                             and_(ClaimsLog.orcidid == orcidid, ClaimsLog.id > last_update.id)) \
                             .order_by(ClaimsLog.id.asc())
                     
@@ -129,13 +130,14 @@ class ClaimsImporter(worker.RabbitMQWorker):
                             for x in ids:
                                 type = x.get('work-external-identifier-type', None)
                                 if type and type.lower() == 'bibcode':
-                                    bibc = x.get('work-external-identifier-id')
+                                    bibc = x['work-external-identifier-id']['value']
+                                    break
                             if bibc:
                                 # would you believe that orcid doesn't return floats?
-                                ts = str(w['last-modified-date'])
+                                ts = str(w['last-modified-date']['value'])
                                 ts = float('%s.%s' % (ts[0:9], ts[10:]))
                                 try:
-                                    provenance = w['source']['source-name']
+                                    provenance = w['source']['source-name']['value']
                                 except KeyError:
                                     provenance = 'orcid-profile'
                                 orcid_present[bibc.lower().strip()] = (bibc.strip(), datetime.datetime.fromtimestamp(ts), provenance)
