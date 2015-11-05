@@ -9,8 +9,11 @@ from .. import app
 from . import worker
 from .. import importer, matcher, updater
 from copy import deepcopy
-
-
+from ..models import KeyValue
+import datetime
+from dateutil import parser
+import requests
+import json
 
 class ClaimsImporter(worker.RabbitMQWorker):
     """
@@ -20,6 +23,49 @@ class ClaimsImporter(worker.RabbitMQWorker):
     def __init__(self, params=None):
         super(ClaimsImporter, self).__init__(params)
         app.init_app()
+        
+    def check_orcid_updates(self):
+        """Checks the remote server for updates"""
+        with app.session_scope() as session:
+            kv = session.query(KeyValue).filter_by(key='last.check').first()
+            if kv is None:
+                kv = KeyValue(key='last.check', value=str(datetime.datetime.utcnow()))
+            
+            latest_point = parser.parse(kv.value) # RFC 3339 format
+            now = datetime.datetime.utcnow()
+            
+            delta = now - latest_point
+            if delta.total_seconds() > app.config.get('ORCID_UPDATES_CHECK', 60*5):
+                self.logger.info("Checking for orcid updates")
+                
+                # increase by one microsec
+                latest_point = latest_point + datetime.timedelta(microseconds=1)
+                r = requests.get(app.config.get('API_ORCID_EXPORT_PROFILE') % latest_point.isoformat(),
+                             headers = {'Authorization': 'Bearer {0}'.format(app.config.get('API_TOKEN'))})
+                
+                if r.status_code != 200:
+                    self.logger.error('Failed getting {0}\n{1}'.format(
+                                app.config.get('API_ORCID_EXPORT_PROFILE') % kv.value,
+                                r.text))
+                    return
+                
+                # we received the data, immediately update the databaes (so that other processes don't 
+                # ask for the same range
+                data = r.json()
+                kv.value = data[0]['updated']
+                session.merge(kv)
+                session.commit()
+                
+                claims = []
+                for rec in data:
+                    #TODO: retrieve the fresh profile
+                    if not 'profile' in data:
+                        self.logger.error('Skipping (because of missing profile) {0}'.format(data['orcid_id']))
+                        continue
+                    profile = json.loads(data['profile'])
+                    
+                    #TODO: decide which recs are created/updated/deleted
+                
         
     def process_payload(self, msg, **kwargs):
         """

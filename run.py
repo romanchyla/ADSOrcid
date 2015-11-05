@@ -106,4 +106,4 @@ if __name__ == '__main__':
         sys.exit(0)
 
     # Send the files to be put on the queue
-    run_import(args.full_text_links)
+    run_import(args.import_claims)

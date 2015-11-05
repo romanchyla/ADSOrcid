@@ -7,6 +7,11 @@ import json
 
 Base = declarative_base()
 
+class KeyValue(Base):
+    __tablename__ = 'storage'
+    key = Column(String(255), primary_key=True)
+    value = Column(Text)
+
 class AuthorInfo(Base):
     __tablename__ = 'authors'
     id = Column(Integer, primary_key=True)
