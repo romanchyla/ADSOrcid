@@ -65,7 +65,8 @@ def create_claim(bibcode=None, orcidid=None, provenance=None, status=None, date=
                 
                      
 
-def import_recs(input_file, default_provenance=None, default_status='created'):
+def import_recs(input_file, default_provenance=None, 
+                default_status='created', collector=None):
     """
     Imports (creates log records) of claims from
     :param: input_file - String, path to the file with the following 
@@ -78,13 +79,18 @@ def import_recs(input_file, default_provenance=None, default_status='created'):
     :param: default_provenance - String, this will be used if the records
             don't provide provenance
     :param: default_status - String, used when status is not supplied
+    :param: collector - if passed in, the results will be inserted
+            into it
+    :type: array
     """
     
     if not os.path.exists(input_file):
         raise Exception('{file} does not exist'.format(
                            file=input_file
                            ))
-    
+    if collector is not None:
+        assert(isinstance(collector, list))
+        
     if default_provenance is None:
         default_provenance = os.path.abspath(input_file)
         
@@ -108,6 +114,8 @@ def import_recs(input_file, default_provenance=None, default_status='created'):
                 try:
                     rec = rec_builder(*parts)
                     session.add(rec)
+                    if collector is not None:
+                        collector.append(rec.toJSON())
                 except Exception, e:
                     app.logger.error('Error importing line %s (%s) - %s' % (i, l, e))
                 if i % 1000 == 0:

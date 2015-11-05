@@ -176,7 +176,11 @@ class MongoUpdater(worker.RabbitMQWorker):
                 self.mongocoll.insert_one(orcid_claims)
             
             # save the claim in our own psql storage
-            updater.record_claims(bibcode, orcid_claims)
+            cl = dict(orcid_claims)
+            del cl['_id']
+            updater.record_claims(bibcode, cl)
+            
+            return True
         else:
             raise Exception('Unable to process: {0}'.format(claim))
         

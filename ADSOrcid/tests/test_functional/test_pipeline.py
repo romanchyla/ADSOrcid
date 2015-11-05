@@ -9,6 +9,7 @@ It then shuts down all of the workers.
 
 import unittest
 import time
+import json
 from ADSOrcid.tests import test_base
 from ADSOrcid.pipeline import pworkers, worker
 from ADSOrcid import app, models
@@ -113,8 +114,8 @@ class TestPipeline(test_base.TestFunctional):
                           )
         
         with app.session_scope() as session:
-            r = session.query(models.Records).filter_by(bibcode='2015ASPC..495..401C')
-            self.assertEquals(r.claims,
+            r = session.query(models.Records).filter_by(bibcode='2015ASPC..495..401C').first()
+            self.assertEquals(json.loads(r.claims)['unverified'],
                               ['0000-0003-3041-2092', '-','-','-','-','-','-','-','-','-', ] 
                               )
             

@@ -55,6 +55,10 @@ class RabbitMQWorker(object):
             if confirm_delivery:
                 self.channel.confirm_delivery()
             self.channel.basic_qos(prefetch_count=1)
+            
+            for x in ('publish', 'subscribe'):
+                if x in self.params and self.params[x]:
+                    self.channel.queue_declare(queue=self.params[x], passive=True)
             return True
         except:
             self.logger.error(sys.exc_info())

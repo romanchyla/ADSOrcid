@@ -18,9 +18,9 @@ EXPOSE 22
 #=========== MONGODB ==================
 
 RUN apt-get update && apt-get install -y mongodb 
-RUN mkdir -p /data
-RUN mkdir -p /vagrant/data/mongodb
-RUN ln -s /vagrant/data/mongodb /data/db
+RUN mkdir -p /data/db
+#RUN mkdir -p /vagrant/data/mongodb
+#RUN ln -s /vagrant/data/mongodb /data/db
 EXPOSE 27017
 
 #=========== POSTGRESQL ===============
