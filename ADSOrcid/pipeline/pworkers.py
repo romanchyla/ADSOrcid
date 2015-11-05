@@ -9,11 +9,13 @@ from .. import app
 from . import worker
 from .. import importer, matcher, updater
 from copy import deepcopy
-from ..models import KeyValue
+from ..models import KeyValue, ClaimsLog
 import datetime
 from dateutil import parser
 import requests
 import json
+import time
+from sqlalchemy import and_
 
 class ClaimsImporter(worker.RabbitMQWorker):
     """
@@ -23,6 +25,12 @@ class ClaimsImporter(worker.RabbitMQWorker):
     def __init__(self, params=None):
         super(ClaimsImporter, self).__init__(params)
         app.init_app()
+        
+    def start_cronjob(self):
+        """Initiates the task in the background"""
+        #TODO: use thread for this
+        time.sleep(app.config.get('ORCID_CHECK_FOR_CHANGES', 60*5))
+        
         
     def check_orcid_updates(self):
         """Checks the remote server for updates"""
@@ -35,10 +43,10 @@ class ClaimsImporter(worker.RabbitMQWorker):
             now = datetime.datetime.utcnow()
             
             delta = now - latest_point
-            if delta.total_seconds() > app.config.get('ORCID_UPDATES_CHECK', 60*5):
+            if delta.total_seconds() > app.config.get('ORCID_CHECK_FOR_CHANGES', 60*5): #default 5min
                 self.logger.info("Checking for orcid updates")
                 
-                # increase by one microsec
+                # increase the timestamp by one microsec and get new updates
                 latest_point = latest_point + datetime.timedelta(microseconds=1)
                 r = requests.get(app.config.get('API_ORCID_EXPORT_PROFILE') % latest_point.isoformat(),
                              headers = {'Authorization': 'Bearer {0}'.format(app.config.get('API_TOKEN'))})
@@ -50,22 +58,142 @@ class ClaimsImporter(worker.RabbitMQWorker):
                     return
                 
                 # we received the data, immediately update the databaes (so that other processes don't 
-                # ask for the same range
+                # ask for the same starting date)
                 data = r.json()
                 kv.value = data[0]['updated']
                 session.merge(kv)
                 session.commit()
                 
-                claims = []
-                for rec in data:
-                    #TODO: retrieve the fresh profile
+                to_claim = []
+                for rec in data: # each rec is orcid:profile
+                    
+                    orcidid = data['orcid_id']
+                    
                     if not 'profile' in data:
                         self.logger.error('Skipping (because of missing profile) {0}'.format(data['orcid_id']))
                         continue
-                    profile = json.loads(data['profile'])
+                    #else: TODO: retrieve the fresh profile
                     
-                    #TODO: decide which recs are created/updated/deleted
-                
+                    # orcid is THE ugliest datastructure of today!
+                    profile = json.loads(data['profile'])
+                    try:
+                        works = profile['orcid-profile']['orcid-activities']['orcid-works']['orcid-work']
+                    except KeyError:
+                        continue
+                    
+                    # find the most recent #full-import record
+                    last_update = session.query(ClaimsLog).filter_by(
+                        and_(ClaimsLog.status == '#full-import', ClaimsLog.orcidid == orcidid)
+                        ).order_by(ClaimsLog.id.desc()).first()
+                        
+                    if last_update is None:
+                        q = session.query(ClaimsLog).filter_by(orcidid=orcidid).order_by(ClaimsLog.id.asc())
+                    else:
+                        # check we haven't seen this very profile already
+                        try:
+                            updt = str(profile['orcid-profile']['orcid-history']['last-modified-date']['value'])
+                            updt = float('%s.%s' % (updt[0:9], updt[10:]))
+                            if last_update.created == updt:
+                                self.logger.info("Skipping {0} (profile unchanged)".format(orcidid))
+                            continue
+                        except KeyError:
+                            updt = datetime.datetime.utcnow()
+                        
+                        q = session.query(ClaimsLog).filter_by(
+                            and_(ClaimsLog.orcidid == orcidid, ClaimsLog.id > last_update.id)) \
+                            .order_by(ClaimsLog.id.asc())
+                    
+                    # find all records we have processed at some point
+                    updated = {}
+                    removed = {}
+                    
+                    for cl in q.all():
+                        if not cl.bibcode:
+                            continue
+                        bibc = cl.bibcode.lower()
+                        if cl.status == 'removed':
+                            removed[bibc] = (cl.bibcode, cl.created)
+                            if bibc in updated:
+                                del updated[bibc]
+                        elif cl.status in ('claimed', 'updated'):
+                            updated[bibc] = (cl.bibcode, cl.created)
+                            if bibc in removed:
+                                del removed[bibc]
+                    
+                    
+                    orcid_present = {}
+                    for w in works:
+                        bibc = None
+                        try:
+                            ids =  w['work-external-identifiers']['work-external-identifier']
+                            for x in ids:
+                                type = x.get('work-external-identifier-type', None)
+                                if type and type.lower() == 'bibcode':
+                                    bibc = x.get('work-external-identifier-id')
+                            if bibc:
+                                # would you believe that orcid doesn't return floats?
+                                ts = str(w['last-modified-date'])
+                                ts = float('%s.%s' % (ts[0:9], ts[10:]))
+                                try:
+                                    provenance = w['source']['source-name']
+                                except KeyError:
+                                    provenance = 'orcid-profile'
+                                orcid_present[bibc.lower().strip()] = (bibc.strip(), datetime.datetime.fromtimestamp(ts), provenance)
+                        except KeyError:
+                            continue
+                    
+                    
+                    #always insert a record that marks the beginning of a full-import
+                    #TODO: record orcid's last-modified-date
+                    to_claim.append(importer.create_claim(bibcode='', 
+                                                              orcidid=orcidid, 
+                                                              provenance=self.__class__.__name__, 
+                                                              status='#full-import',
+                                                              date=updt))
+                    
+                    # find difference between what we have and what orcid has
+                    claims_we_have = set(updated.keys()).difference(set(removed.keys()))
+                    claims_orcid_has = set(orcid_present.keys())
+                    
+                    # those guys will be added (with ORCID date signature)
+                    for c in claims_orcid_has.difference(claims_we_have):
+                        claim = orcid_present[c]
+                        to_claim.append(importer.create_claim(bibcode=claim[0], 
+                                                              orcidid=orcidid, 
+                                                              provenance=claim[2], 
+                                                              status='claimed', 
+                                                              date=claim[1]))
+                    
+                    # those guys will be removed (since orcid doesn't have them)
+                    for c in claims_we_have.difference(claims_orcid_has):
+                        claim = updated[c]
+                        to_claim.append(importer.create_claim(bibcode=claim[0], 
+                                                              orcidid=orcidid, 
+                                                              provenance=self.__class__.__name__, 
+                                                              status='removed'))
+                        
+                    # and those guys will be updated if their creation date is significantly
+                    # off
+                    for c in claims_orcid_has.intersection(claims_we_have):
+                        
+                        orcid_claim = orcid_present[c]
+                        ads_claim = updated[c]
+                        
+                        delta = orcid_claim[1] - ads_claim[1]
+                        if delta > app.config.get('ORCID_UPDATE_WINDOW', 60): 
+                            to_claim.append(importer.create_claim(bibcode=orcid_claim[0], 
+                                                              orcidid=orcidid, 
+                                                              provenance=self.__class__.__name__, 
+                                                              status='updated',
+                                                              date=orcid_claim[1]))
+                        else:
+                            to_claim.append(importer.create_claim(bibcode=orcid_claim[0], 
+                                                              orcidid=orcidid, 
+                                                              provenance=self.__class__.__name__, 
+                                                              status='unchanged',
+                                                              date=orcid_claim[1]))
+                if len(to_claim):
+                    importer.insert_claims(to_claim)
         
     def process_payload(self, msg, **kwargs):
         """

@@ -6,7 +6,7 @@ from . import app
 import dateutil.parser
 import datetime
 
-ALLOWED_STATUS = set(['claimed', 'updated', 'removed'])
+ALLOWED_STATUS = set(['claimed', 'updated', 'removed', 'unchanged', '#full-import'])
 
 def insert_claims(claims):
     """
