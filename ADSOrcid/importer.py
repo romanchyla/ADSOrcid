@@ -31,7 +31,7 @@ def insert_claims(claims):
         res = [x.toJSON() for x in res]
     return res
 
-def create_claim(bibcode=None, orcidid=None, provenance=None, status=None, date=None):
+def create_claim(bibcode=None, orcidid=None, provenance=None, status=None, date=None, force_new=True):
     """
     Inserts (or updates) ClaimLog entry.
     
@@ -44,14 +44,14 @@ def create_claim(bibcode=None, orcidid=None, provenance=None, status=None, date=
     if status and status.lower() not in ALLOWED_STATUS:
         raise Exception('Unknown status %s' % status)
     
-    if not date: # we don't need to verify the record exists
+    if not date or force_new is True: # we don't need to verify the record exists
         return ClaimsLog(bibcode=bibcode, 
                   orcidid=orcidid,
                   provenance=provenance, 
                   status=status,
                   created=date or datetime.datetime.utcnow())
     else:
-        with app.scoped_session as session:
+        with app.session_scope() as session:
             f = session.query(ClaimsLog).filter_by(created=date).first()
             if f and f.bibcode == bibcode and f.orcidid == orcidid:
                 f.provenance = provenance
@@ -61,7 +61,7 @@ def create_claim(bibcode=None, orcidid=None, provenance=None, status=None, date=
                   orcidid=orcidid,
                   provenance=provenance, 
                   status=status,
-                  created=datetime.datetime.utcnow())
+                  created=date)
                 
                      
 

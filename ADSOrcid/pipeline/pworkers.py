@@ -60,7 +60,13 @@ class ClaimsImporter(worker.RabbitMQWorker):
                 # we received the data, immediately update the databaes (so that other processes don't 
                 # ask for the same starting date)
                 data = r.json()
-                kv.value = data[0]['updated'] #date in isoformat
+                
+                # data should be ordered by date update (but to be sure, let's check it); we'll save it
+                # as latest 'check point'
+                dates = [parser.parse(x['updated']) for x in data]
+                dates = sorted(dates, reverse=True)
+                
+                kv.value = dates[0].isoformat()
                 session.merge(kv)
                 session.commit()
                 
@@ -80,7 +86,15 @@ class ClaimsImporter(worker.RabbitMQWorker):
                         works = profile['orcid-profile']['orcid-activities']['orcid-works']['orcid-work']
                     except KeyError:
                         continue
-                    
+
+                    # check we haven't seen this very profile already
+                    try:
+                        updt = str(profile['orcid-profile']['orcid-history']['last-modified-date']['value'])
+                        updt = float('%s.%s' % (updt[0:10], updt[10:]))
+                        updt = datetime.datetime.fromtimestamp(updt)
+                    except KeyError:
+                        updt = datetime.datetime.utcnow()
+                                            
                     # find the most recent #full-import record
                     last_update = session.query(ClaimsLog).filter(
                         and_(ClaimsLog.status == '#full-import', ClaimsLog.orcidid == orcidid)
@@ -88,22 +102,15 @@ class ClaimsImporter(worker.RabbitMQWorker):
                         
                     if last_update is None:
                         q = session.query(ClaimsLog).filter_by(orcidid=orcidid).order_by(ClaimsLog.id.asc())
-                        updt = datetime.datetime.utcnow()
                     else:
-                        # check we haven't seen this very profile already
-                        try:
-                            updt = str(profile['orcid-profile']['orcid-history']['last-modified-date']['value'])
-                            updt = float('%s.%s' % (updt[0:9], updt[10:]))
-                            if last_update.created == updt:
-                                self.logger.info("Skipping {0} (profile unchanged)".format(orcidid))
+                        if last_update.created == updt:
+                            self.logger.info("Skipping {0} (profile unchanged)".format(orcidid))
                             continue
-                        except KeyError:
-                            updt = datetime.datetime.utcnow()
-                        
                         q = session.query(ClaimsLog).filter(
                             and_(ClaimsLog.orcidid == orcidid, ClaimsLog.id > last_update.id)) \
                             .order_by(ClaimsLog.id.asc())
                     
+                            
                     # find all records we have processed at some point
                     updated = {}
                     removed = {}
@@ -135,7 +142,7 @@ class ClaimsImporter(worker.RabbitMQWorker):
                             if bibc:
                                 # would you believe that orcid doesn't return floats?
                                 ts = str(w['last-modified-date']['value'])
-                                ts = float('%s.%s' % (ts[0:9], ts[10:]))
+                                ts = float('%s.%s' % (ts[0:10], ts[10:]))
                                 try:
                                     provenance = w['source']['source-name']['value']
                                 except KeyError:
@@ -151,7 +158,8 @@ class ClaimsImporter(worker.RabbitMQWorker):
                                                               orcidid=orcidid, 
                                                               provenance=self.__class__.__name__, 
                                                               status='#full-import',
-                                                              date=updt))
+                                                              date=updt
+                                                              ))
                     
                     # find difference between what we have and what orcid has
                     claims_we_have = set(updated.keys()).difference(set(removed.keys()))
@@ -164,7 +172,8 @@ class ClaimsImporter(worker.RabbitMQWorker):
                                                               orcidid=orcidid, 
                                                               provenance=claim[2], 
                                                               status='claimed', 
-                                                              date=claim[1]))
+                                                              date=claim[1])
+                                                              )
                     
                     # those guys will be removed (since orcid doesn't have them)
                     for c in claims_we_have.difference(claims_orcid_has):
@@ -172,7 +181,8 @@ class ClaimsImporter(worker.RabbitMQWorker):
                         to_claim.append(importer.create_claim(bibcode=claim[0], 
                                                               orcidid=orcidid, 
                                                               provenance=self.__class__.__name__, 
-                                                              status='removed'))
+                                                              status='removed')
+                                                              )
                         
                     # and those guys will be updated if their creation date is significantly
                     # off
@@ -182,12 +192,13 @@ class ClaimsImporter(worker.RabbitMQWorker):
                         ads_claim = updated[c]
                         
                         delta = orcid_claim[1] - ads_claim[1]
-                        if delta > app.config.get('ORCID_UPDATE_WINDOW', 60): 
+                        if delta.total_seconds() > app.config.get('ORCID_UPDATE_WINDOW', 60): 
                             to_claim.append(importer.create_claim(bibcode=orcid_claim[0], 
                                                               orcidid=orcidid, 
                                                               provenance=self.__class__.__name__, 
                                                               status='updated',
-                                                              date=orcid_claim[1]))
+                                                              date=orcid_claim[1])
+                                                              )
                         else:
                             to_claim.append(importer.create_claim(bibcode=orcid_claim[0], 
                                                               orcidid=orcidid, 

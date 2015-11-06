@@ -30,15 +30,13 @@ def init_app(local_config=None):
     if local_config:
         config.update(local_config)
     
-    global logger
+    global logger, session
     logger = utils.setup_logging(__file__, 'app', config['LOGGING_LEVEL'])
-    
     engine = create_engine(config.get('SQLALCHEMY_URL', 'sqlite:///'),
                            echo=config.get('SQLALCHEMY_ECHO', False))
     session_factory = sessionmaker()
-    global session
-    session = scoped_session(session_factory)
     
+    session = scoped_session(session_factory)
     session.configure(bind=engine)
 
     
