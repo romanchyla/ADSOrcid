@@ -238,6 +238,8 @@ class ClaimsImporter(worker.RabbitMQWorker):
         c = importer.insert_claims(msg)
         if c and len(c) > 0:
             for claim in c:
+                if claim.get('status', 'created') in ('unchanged', '#full-import'):
+                    continue
                 self.publish(claim)
 
 
@@ -352,7 +354,8 @@ class MongoUpdater(worker.RabbitMQWorker):
         
         
         # find the position and update
-        if updater.update_record(rec, claim):
+        idx = updater.update_record(rec, claim)
+        if idx is not None and idx > -1:
             for x in ('verified', 'unverified'):
                 if x in rec:
                     orcid_claims[x] = rec[x]

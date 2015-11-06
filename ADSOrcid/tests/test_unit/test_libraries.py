@@ -166,6 +166,22 @@ class TestMatcherUpdater(test_base.TestUnit):
         self.assertEqual(doc['verified'], 
             ['-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '0000-0003-2686-9241', '-'])
         
+        updater.update_record(
+          doc,
+          {
+           'bibcode': '2015ApJ...799..123B', 
+           'orcidid': '0000-0003-2686-9241',
+           'accnt_id': '10',
+           'orcid_name': [u'Stern, Daniel'],
+           'author': [u'Stern, D', u'Stern, D K', u'Stern, Daniel'],
+           'author_norm': [u'Stern, D'],
+           'name': u'Stern, D K',
+           'status': 'removed'
+          }                          
+        )
+        self.assertEqual(doc['verified'], 
+            ['-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-'])
+        
         
     def test_find_author_position(self):
         """

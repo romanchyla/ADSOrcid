@@ -99,8 +99,8 @@ def update_record(rec, claim):
             
             idx = find_orcid_position(rec['authors'], claim[fx])
             if idx > -1:
-                rec[fld_name][idx] = claim['orcidid']
-                return True 
+                rec[fld_name][idx] = claim.get('status', 'created') == 'removed' and '-' or claim['orcidid']
+                return idx
 
 
 def find_orcid_position(authors_list, name_variants):
