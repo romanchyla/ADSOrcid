@@ -1,0 +1,14 @@
+#!/bin/bash
+
+# on every restart check/deploy latest version
+/gitpull.sh
+
+# if we there is a config in the mounted volume, use that!
+if [ -e /vagrant/prod_config.py ]; then
+  echo "Using the prod_config.py from /vagrant/prod_config.py"
+  cp -f /vagrant/prod_config.py /app/ADSOrcid/local_config.py
+fi
+
+
+#python run.py -p
+/bin/bash

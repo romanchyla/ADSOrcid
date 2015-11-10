@@ -40,7 +40,7 @@ class ClaimsImporter(worker.RabbitMQWorker):
                         pass
                     time.sleep(app.config.get('ORCID_CHECK_FOR_CHANGES', 60*5) / 2)
                 except Exception, e:
-                    worker.logger.error('Exception fetching profiles: '
+                    worker.logger.error('Error fetching profiles: '
                                 '{0} ({1})'.format(e.message,
                                                    traceback.format_exc()))
         
