@@ -88,10 +88,12 @@ Typical installation:
 1. `vim ADSOrcid/prod_config.py` # edit, edit...
 1. `vagrant up prod`
 
-If you want to look inside, do:
+Here are some useful commands:
 
-1. `docker exec -ti ADSOrcid bash
+- restart service
 
-- to restart the service, do:
+	`docker exec ADSOrcid sv restart app`
 
-`sv restart app`
+- tail log from one of the workers
+
+	`docker exec ADSOrcid tail -f /app/logs/ClaimsImporter.log`
