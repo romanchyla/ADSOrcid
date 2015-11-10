@@ -31,7 +31,13 @@ def insert_claims(claims):
         res = [x.toJSON() for x in res]
     return res
 
-def create_claim(bibcode=None, orcidid=None, provenance=None, status=None, date=None, force_new=True):
+def create_claim(bibcode=None, 
+                 orcidid=None, 
+                 provenance=None, 
+                 status=None, 
+                 date=None, 
+                 force_new=True,
+                 **kwargs):
     """
     Inserts (or updates) ClaimLog entry.
     

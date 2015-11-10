@@ -1,0 +1,32 @@
+#!/bin/bash
+
+cd /vagrant
+
+pip install -r requirements.txt
+pip install -r dev-requirements.txt
+
+
+cd /vagrant/ADSOrcid
+
+if [ -e local_config.py ]; then
+  mv local_config.py local_config.py.`date --iso-8601=seconds`
+fi
+
+echo "
+# local config auto-generated; for the testing of the 'vagrant up app'
+# the old config was saved into local_config.py.<timestamp>
+
+MONGODB_URL = 'mongodb://db:27017/adsdata'
+
+RABBITMQ_URL = 'amqp://guest:guest@rabbitmq:672/?socket_timeout=10&backpressure_detection=t'
+               
+SQLALCHEMY_URL = 'postgres://docker:docker@db:5432/docker'
+
+# this is from production api
+API_TOKEN = '5GOoIzwvsc0PcHv2wVPcAvP9Urym6HhXvklFwras'
+" > local_config.py
+
+
+cd /vagrant
+alembic upgrade head
+

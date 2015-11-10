@@ -16,6 +16,8 @@ import requests
 import json
 import time
 from sqlalchemy import and_
+import threading
+import traceback
 
 class ClaimsImporter(worker.RabbitMQWorker):
     """
@@ -25,11 +27,26 @@ class ClaimsImporter(worker.RabbitMQWorker):
     def __init__(self, params=None):
         super(ClaimsImporter, self).__init__(params)
         app.init_app()
+        self.start_cronjob()
         
     def start_cronjob(self):
         """Initiates the task in the background"""
-        #TODO: use thread for this
-        time.sleep(app.config.get('ORCID_CHECK_FOR_CHANGES', 60*5))
+        self.keep_running = True
+        def runner(worker):
+            while worker.keep_running:
+                try:
+                    # keep consuming the remote stream until there is 0 recs
+                    while worker.check_orcid_updates():
+                        pass
+                    time.sleep(app.config.get('ORCID_CHECK_FOR_CHANGES', 60*5) / 2)
+                except Exception, e:
+                    worker.logger.error('Exception fetching profiles: '
+                                '{0} ({1})'.format(e.message,
+                                                   traceback.format_exc()))
+        
+        self.checker = threading.Thread(target=runner, kwargs={'worker': self})
+        self.checker.setDaemon(True)
+        self.checker.start()
         
         
     def check_orcid_updates(self):
@@ -37,7 +54,7 @@ class ClaimsImporter(worker.RabbitMQWorker):
         with app.session_scope() as session:
             kv = session.query(KeyValue).filter_by(key='last.check').first()
             if kv is None:
-                kv = KeyValue(key='last.check', value=str(datetime.datetime.utcnow()))
+                kv = KeyValue(key='last.check', value='1974-11-09T22:56:52.518001') #force update
             
             latest_point = parser.parse(kv.value) # RFC 3339 format
             now = datetime.datetime.utcnow()
@@ -57,9 +74,15 @@ class ClaimsImporter(worker.RabbitMQWorker):
                                 r.text))
                     return
                 
+                if r.text.strip() == "":
+                    return
+                
                 # we received the data, immediately update the databaes (so that other processes don't 
                 # ask for the same starting date)
                 data = r.json()
+                
+                if len(data) == 0:
+                    return
                 
                 # data should be ordered by date update (but to be sure, let's check it); we'll save it
                 # as latest 'check point'
@@ -84,7 +107,15 @@ class ClaimsImporter(worker.RabbitMQWorker):
                     profile = rec['profile']
                     try:
                         works = profile['orcid-profile']['orcid-activities']['orcid-works']['orcid-work']
-                    except KeyError:
+                    except KeyError, e:
+                        self.logger.error('Error processing a profile: '
+                            '{0} ({1})'.format(orcidid,
+                                               traceback.format_exc()))
+                        continue
+                    except TypeError, e:
+                        self.logger.error('Error processing a profile: '
+                            '{0} ({1})'.format(orcidid,
+                                               traceback.format_exc()))
                         continue
 
                     # check we haven't seen this very profile already
@@ -148,7 +179,15 @@ class ClaimsImporter(worker.RabbitMQWorker):
                                 except KeyError:
                                     provenance = 'orcid-profile'
                                 orcid_present[bibc.lower().strip()] = (bibc.strip(), datetime.datetime.fromtimestamp(ts), provenance)
-                        except KeyError:
+                        except KeyError, e:
+                            self.logger.error('Error processing a record: '
+                                '{0} ({1})'.format(w,
+                                                   traceback.format_exc()))
+                            continue
+                        except TypeError, e:
+                            self.logger.error('Error processing a record: '
+                                '{0} ({1})'.format(w,
+                                                   traceback.format_exc()))
                             continue
                     
                     
@@ -206,7 +245,10 @@ class ClaimsImporter(worker.RabbitMQWorker):
                                                               status='unchanged',
                                                               date=orcid_claim[1]))
                 if len(to_claim):
-                    importer.insert_claims(to_claim)
+                    json_claims = importer.insert_claims(to_claim) # write to db
+                    self.process_payload(json_claims) # send to the queue
+                    return len(json_claims)
+                    
         
     def process_payload(self, msg, **kwargs):
         """

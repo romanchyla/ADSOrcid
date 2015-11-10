@@ -18,6 +18,7 @@ import argparse
 import json
 from ADSOrcid import app, importer
 from ADSOrcid.pipeline.worker import RabbitMQWorker
+from ADSOrcid.pipeline import pstart
 from ADSOrcid.utils import setup_logging
 
 logger = setup_logging(__file__, __name__)
@@ -72,6 +73,11 @@ def run_import(claims_file, queue='ads.orcid.claims', **kwargs):
     logger.info('Done processing {0} claims.'.format(len(c)))
 
 
+def start_pipeline():
+    """Starts the workers and let them do their job"""
+    pstart.start_pipeline({}, app)
+    
+
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Process user input.')
@@ -90,20 +96,33 @@ if __name__ == '__main__':
                         action='store',
                         type=str,
                         help='Path to the claims file to import')
-
+    
+    parser.add_argument('-p',
+                        '--start_pipeline',
+                        dest='start_pipeline',
+                        action='store_true',
+                        help='Start the pipeline')
+    
     parser.set_defaults(purge_queues=False)
+    parser.set_defaults(start_pipeline=False)
     args = parser.parse_args()
     
     app.init_app()
     
+    work_done = False
     if args.purge_queues:
         purge_queues(app.config.get('WORKERS'))
         sys.exit(0)
 
-    if not args.import_claims:
-        print 'You need to give the input list'
+    if args.start_pipeline:
+        start_pipeline()
+        work_done = True
+        
+    if args.import_claims:
+        # Send the files to be put on the queue
+        run_import(args.import_claims)
+        work_done = True
+        
+    if not work_done:
         parser.print_help()
         sys.exit(0)
-
-    # Send the files to be put on the queue
-    run_import(args.import_claims)
