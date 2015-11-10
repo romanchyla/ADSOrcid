@@ -6,7 +6,6 @@
 
 Vagrant.configure("2") do |config|
 
-  if ENV['ENVIRONMENT'] == 'production'
   
     config.vm.define "prod" do |prod|
       prod.vm.provider "docker" do |d|
@@ -18,7 +17,6 @@ Vagrant.configure("2") do |config|
       end
     end
     
-  else
   
     #TODO: mount the folder as the user that owns the repo
     config.vm.synced_folder ".", "/vagrant", owner: 1000, group: 130
@@ -56,5 +54,4 @@ Vagrant.configure("2") do |config|
     config.ssh.username = "root"
     config.ssh.private_key_path = "insecure_key"
     
-  end
 end

@@ -22,21 +22,39 @@ How it works:
 dev setup - vagrant (docker)
 ============================
 
+1. vim ADSOrcid/local_config.py #edit, edit
+1. `vagrant up db rabbitmq app`
+1. `vagrant ssh app`
+1. `cd /vagrant`
+
+This will start the pipeline inside the `app` container - if you have configured endpoints and
+access tokens correctly, it starts fetching data from orcid.
+
 We are using 'docker' provider (ie. instead of virtualbox VM, you run the processes in docker).
 On some systems, it is necessary to do: `export VAGRANT_DEFAULT_PROVIDER=docker` or always 
 specify `--provider docker' when you run vagrant.
  
 The  directory is synced to /vagrant/ on the guest.
 
-1. `vagrant up`
-1. `vagrant ssh app`
-1. `cd /vagrant`
+
+dev setup - local editing
+=========================
+
+If you (also) hate when stuff is unnecessarily complicated, then you can also run/develop locally
+(using whatever editor/IDE/debugger you like)
+
+1. virtualenv python
+1. source python/bin/activate
+1. pip install -r requirements.txt
+1. pip install -r dev-requirements.txt
+1. vagrant `up db rabbitmq`
+
+This will setup python `virtualenv` and the database + rabbitmq. You can run the pipeline and 
+tests locally. 
 
 
 RabbitMQ
 ========
-
-To start only the rabbitmq container:
 
 `vagrant up rabbitmq`
 
@@ -46,30 +64,34 @@ The RabbitMQ will be on localhost:6672. The administrative interface on localhos
 Database
 ========
 
-To start only the db container:
-
 `vagrant up db`
 
-It will have a MongoDB instance and PostgreSQL database.
-
-The files are synces into data/mongodb and data/postgres.
-
-
-Application
-===========
-
-For development, you want to run it locally. Always make sure that you have the lates
-database by running: `alembic upgrade head`
+MongoDB is on localhost:37017, PostgreSQL on localhost:6432
 
 
 
 production setup
 ================
 
-The vagrant (docker provider) can run the production code. You probably only want to start the
-application and connect to existing (external) databases and RabbitMQ. To do that:
+`vagrant up prod`
 
-1. create and edit the `local_config.py`
-1. `vagrant start app`
+It will automatically download/install the latest release from the github (no, not
+your local changes - only from github).
 
-Essentially, you have to point the app at remote MongoDB, RabbitMQ and SQLALCHEMY.
+If you /ADSOrcid/prod_config.py is available, it will copy and use it in place of
+`local_config.py`
+
+No ports are exposed, no SSH access is possible.
+
+Typical installation:
+
+1. `vim ADSOrcid/prod_config.py` # edit, edit...
+1. `vagrant up prod`
+
+If you want to look inside, do:
+
+1. `docker exec -ti ADSOrcid bash
+
+- to restart the service, do:
+
+`sv restart app`

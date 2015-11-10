@@ -10,5 +10,5 @@ if [ -e /vagrant/prod_config.py ]; then
 fi
 
 
-#python run.py -p
-/bin/bash
+# start the pipeline
+python run.py -p
