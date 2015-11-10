@@ -1,7 +1,8 @@
 # Connection to the database where we save orcid-claims (this database
 # serves as a running log of claims and storage of author-related
 # information). It is not consumed by others (ie. we 'push' results) 
-SQLALCHEMY_URL = 'postgres://docker:docker@localhost:6432/docker'
+# SQLALCHEMY_URL = 'postgres://docker:docker@localhost:6432/docker'
+SQLALCHEMY_URL = 'sqlalchemy:///'
 SQLALCHEMY_ECHO = False
 
 # One of the workers is (currently) writing orcid claims into MongoDB
