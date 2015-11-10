@@ -29,9 +29,9 @@ class TestWorkers(test_base.TestUnit):
     def tearDown(self):
         test_base.TestUnit.tearDown(self)
         Base.metadata.drop_all()
+        app.close_app()
     
     def create_app(self):
-        reload(app)
         app.init_app({
             'SQLALCHEMY_URL': 'sqlite:///',
             'SQLALCHEMY_ECHO': False,

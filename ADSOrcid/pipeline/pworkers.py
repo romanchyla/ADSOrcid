@@ -33,6 +33,7 @@ class ClaimsImporter(worker.RabbitMQWorker):
         """Initiates the task in the background"""
         self.keep_running = True
         def runner(worker):
+            time.sleep(1)
             while worker.keep_running:
                 try:
                     # keep consuming the remote stream until there is 0 recs
@@ -40,6 +41,7 @@ class ClaimsImporter(worker.RabbitMQWorker):
                         pass
                     time.sleep(app.config.get('ORCID_CHECK_FOR_CHANGES', 60*5) / 2)
                 except Exception, e:
+                    print(traceback.format_exc())
                     worker.logger.error('Error fetching profiles: '
                                 '{0} ({1})'.format(e.message,
                                                    traceback.format_exc()))
@@ -246,11 +248,11 @@ class ClaimsImporter(worker.RabbitMQWorker):
                                                               date=orcid_claim[1]))
                 if len(to_claim):
                     json_claims = importer.insert_claims(to_claim) # write to db
-                    self.process_payload(json_claims) # send to the queue
+                    self.process_payload(json_claims, skip_inserting=True) # send to the queue
                     return len(json_claims)
                     
         
-    def process_payload(self, msg, **kwargs):
+    def process_payload(self, msg, skip_inserting=False, **kwargs):
         """
         Normally, this worker will pro-actively check the remote web
         service, however it will also keep looking into the queue where
@@ -277,7 +279,11 @@ class ClaimsImporter(worker.RabbitMQWorker):
         else:
             raise Exception('Received unknown payload {0}'.format(msg))
         
-        c = importer.insert_claims(msg)
+        if skip_inserting:
+            c = msg
+        else:
+            c = importer.insert_claims(msg)
+        
         if c and len(c) > 0:
             for claim in c:
                 if claim.get('status', 'created') in ('unchanged', '#full-import'):

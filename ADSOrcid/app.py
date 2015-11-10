@@ -39,6 +39,13 @@ def init_app(local_config=None):
     session = scoped_session(session_factory)
     session.configure(bind=engine)
 
+def close_app():
+    """Closes the app"""
+    global logger, session
+    session = None
+    logger = None
+    config.clear()
+
     
 @contextmanager
 def session_scope():

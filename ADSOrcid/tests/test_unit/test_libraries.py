@@ -31,11 +31,12 @@ class TestMatcherUpdater(test_base.TestUnit):
     def tearDown(self):
         test_base.TestUnit.tearDown(self)
         Base.metadata.drop_all()
+        app.close_app()
     
     def create_app(self):
         app.init_app({
             'SQLALCHEMY_URL': 'sqlite:///',
-            'SQLALCHEMY_ECHO': True
+            'SQLALCHEMY_ECHO': False
         })
         Base.metadata.bind = app.session.get_bind()
         Base.metadata.create_all()
