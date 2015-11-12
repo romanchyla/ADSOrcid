@@ -367,6 +367,8 @@ class MongoUpdater(worker.RabbitMQWorker):
         self.mongo = MongoClient(app.config.get('MONGODB_URL'))
         self.mongodb = self.mongo[app.config.get('MONGODB_DB', 'adsdata')]
         self.mongocoll = self.mongodb[app.config.get('MONGODB_COLL', 'orcid_claims')]
+        # stupid mongo will not tell us if we have access, so let's fire/fail
+        self.monbodb.collection_names()
         
     def process_payload(self, claim, **kwargs):
         """

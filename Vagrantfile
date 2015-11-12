@@ -7,17 +7,6 @@
 Vagrant.configure("2") do |config|
 
   
-    config.vm.define "prod" do |prod|
-      prod.vm.provider "docker" do |d|
-        d.cmd     = ["/sbin/my_init"]
-        d.build_dir = "manifests/production/app"
-        d.has_ssh = false
-        d.name = "ADSOrcid"
-        d.remains_running = true
-      end
-    end
-    
-  
     #TODO: mount the folder as the user that owns the repo
     config.vm.synced_folder ".", "/vagrant", owner: 1000, group: 130
     
@@ -54,4 +43,13 @@ Vagrant.configure("2") do |config|
     config.ssh.username = "root"
     config.ssh.private_key_path = "insecure_key"
     
+    config.vm.define "prod" do |prod|
+      prod.vm.provider "docker" do |d|
+        d.cmd     = ["/sbin/my_init"]
+        d.build_dir = "manifests/production/app"
+        d.has_ssh = false
+        d.name = "ADSOrcid"
+        d.remains_running = true
+      end
+    end
 end

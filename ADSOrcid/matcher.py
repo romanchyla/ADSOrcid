@@ -21,7 +21,7 @@ def retrieve_orcid(orcid):
     with session_scope() as session:
         u = session.query(AuthorInfo).filter_by(orcidid=orcid).first()
         if u is not None:
-            return u
+            return u.toJSON()
         u = create_orcid(orcid)
         session.add(u)
         session.commit()
