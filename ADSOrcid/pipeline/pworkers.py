@@ -41,7 +41,6 @@ class ClaimsImporter(worker.RabbitMQWorker):
                         pass
                     time.sleep(app.config.get('ORCID_CHECK_FOR_CHANGES', 60*5) / 2)
                 except Exception, e:
-                    print(traceback.format_exc())
                     worker.logger.error('Error fetching profiles: '
                                 '{0} ({1})'.format(e.message,
                                                    traceback.format_exc()))
@@ -368,7 +367,7 @@ class MongoUpdater(worker.RabbitMQWorker):
         self.mongodb = self.mongo[app.config.get('MONGODB_DB', 'adsdata')]
         self.mongocoll = self.mongodb[app.config.get('MONGODB_COLL', 'orcid_claims')]
         # stupid mongo will not tell us if we have access, so let's fire/fail
-        self.monbodb.collection_names()
+        self.mongodb.collection_names()
         
     def process_payload(self, claim, **kwargs):
         """

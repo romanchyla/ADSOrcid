@@ -168,12 +168,15 @@ def cleanup_orcidid(orcid):
         
 def cleanup_name(name):
     """
-    Removes some unnecessary characters from the name
+    Removes some unnecessary characters from the name; 
+    always returns a unicode
     """
     if not name:
-        return ''
-    name = name.replace('.', '')
-    name = ' '.join(name.split())
+        return u''
+    if not isinstance(name, unicode):
+        name = name.decode('utf8') # assumption, but ok...
+    name = name.replace(u'.', u'')
+    name = u' '.join(name.split())
     return name 
         
     
