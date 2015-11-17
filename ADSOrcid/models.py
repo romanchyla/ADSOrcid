@@ -43,7 +43,7 @@ class ClaimsLog(Base):
     def toJSON(self):
         return {'id': self.id, 'orcidid': self.orcidid,
                 'bibcode': self.bibcode, 'status': self.status,
-                'provenance': str(self.provenance), 'created': self.created and str(self.created) or None
+                'provenance': unicode(self.provenance), 'created': self.created and str(self.created) or None
                 }
 
     

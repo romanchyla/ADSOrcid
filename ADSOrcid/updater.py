@@ -112,8 +112,8 @@ def find_orcid_position(authors_list, name_variants):
     
     :return list of positions that match
     """
-    al = [matcher.cleanup_name(x).lower().decode('utf8') for x in authors_list]
-    nv = [matcher.cleanup_name(x).lower().decode('utf8') for x in name_variants]
+    al = [matcher.cleanup_name(x).lower().encode('utf8') for x in authors_list]
+    nv = [matcher.cleanup_name(x).lower().encode('utf8') for x in name_variants]
     
     # compute similarity between all authors (and the supplied variants)
     # this is not very efficient, however the lists should be small
