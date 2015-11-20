@@ -2,8 +2,8 @@ import os
 import sys
 from .models import ClaimsLog, Records
 from . import app
+from .utils import get_date
 
-import dateutil.parser
 import datetime
 
 ALLOWED_STATUS = set(['claimed', 'updated', 'removed', 'unchanged', '#full-import'])
@@ -46,7 +46,7 @@ def create_claim(bibcode=None,
     """
     assert(orcidid)
     if isinstance(date, basestring):
-        date = dateutil.parser.parse(date)
+        date = get_date(date)
     if status and status.lower() not in ALLOWED_STATUS:
         raise Exception('Unknown status %s' % status)
     
@@ -55,7 +55,7 @@ def create_claim(bibcode=None,
                   orcidid=orcidid,
                   provenance=provenance, 
                   status=status,
-                  created=date or datetime.datetime.utcnow())
+                  created=date or get_date())
     else:
         with app.session_scope() as session:
             f = session.query(ClaimsLog).filter_by(created=date).first()
@@ -106,7 +106,7 @@ def import_recs(input_file, default_provenance=None,
                       orcidid=orcidid,
                       provenance=provenance or default_provenance, 
                       status=status or default_status,
-                      created=date and dateutil.parser.parse(date) or datetime.datetime.utcnow())
+                      created=date and get_date(date) or get_date())
         
     i = 0
     with open(input_file, 'r') as fi:

@@ -20,7 +20,7 @@ import mock
 from io import BytesIO
 
 from ADSOrcid.tests import test_base
-from ADSOrcid import matcher, app, updater, importer
+from ADSOrcid import matcher, app, updater, importer, utils
 from ADSOrcid.models import AuthorInfo, ClaimsLog, Records, Base
 
 class TestMatcherUpdater(test_base.TestUnit):
@@ -42,24 +42,42 @@ class TestMatcherUpdater(test_base.TestUnit):
         Base.metadata.create_all()
         return app
     
+    def test_get_date(self):
+        """Check we always work with UTC dates"""
+        
+        d = utils.get_date()
+        self.assertTrue(d.tzname() == 'UTC')
+        
+        d1 = utils.get_date('2009-09-04T01:56:35.450686Z')
+        self.assertTrue(d1.tzname() == 'UTC')
+        self.assertEqual(d1.isoformat(), '2009-09-04T01:56:35.450686+00:00')
+        
+        d2 = utils.get_date('2009-09-03T20:56:35.450686-05:00')
+        self.assertTrue(d2.tzname() == 'UTC')
+        self.assertEqual(d2.isoformat(), '2009-09-04T01:56:35.450686+00:00')
+
+        d3 = utils.get_date('2009-09-03T20:56:35.450686')
+        self.assertTrue(d3.tzname() == 'UTC')
+        self.assertEqual(d3.isoformat(), '2009-09-03T20:56:35.450686+00:00')
+
     def test_models(self):
         """Check serialization into JSON"""
         
         claim = ClaimsLog(bibcode='foo', orcidid='bar',
                           created='2009-09-03T20:56:35.450686Z')
         self.assertDictEqual(claim.toJSON(),
-             {'status': None, 'bibcode': 'foo', 'created': '2009-09-03T20:56:35.450686Z', 'provenance': 'None', 'orcidid': 'bar', 'id': None})
+             {'status': None, 'bibcode': 'foo', 'created': '2009-09-03T20:56:35.450686+00:00', 'provenance': 'None', 'orcidid': 'bar', 'id': None})
         
         ainfo = AuthorInfo(orcidid='bar',
                           created='2009-09-03T20:56:35.450686Z')
         
         self.assertDictEqual(ainfo.toJSON(),
-             {'status': None, 'updated': None, 'name': None, 'created': '2009-09-03T20:56:35.450686Z', 'facts': {}, 'orcidid': 'bar', 'id': None, 'account_id': None})
+             {'status': None, 'updated': None, 'name': None, 'created': '2009-09-03T20:56:35.450686+00:00', 'facts': {}, 'orcidid': 'bar', 'id': None, 'account_id': None})
         
         rec = Records(bibcode='foo', created='2009-09-03T20:56:35.450686Z')
 
         self.assertDictEqual(rec.toJSON(),
-             {'bibcode': 'foo', 'created': '2009-09-03T20:56:35.450686Z', 'updated': None, 'processed': None, 'claims': {}, 'id': None})
+             {'bibcode': 'foo', 'created': '2009-09-03T20:56:35.450686+00:00', 'updated': None, 'processed': None, 'claims': {}, 'id': None})
     
     @httpretty.activate
     def test_harvest_author_info(self):

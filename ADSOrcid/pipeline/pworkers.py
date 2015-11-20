@@ -8,10 +8,10 @@ from the RabbitMQ class.
 from .. import app
 from . import worker
 from .. import importer, matcher, updater
+from ..utils import get_date
 from copy import deepcopy
 from ..models import KeyValue, ClaimsLog
 import datetime
-from dateutil import parser
 import requests
 import json
 import time
@@ -55,10 +55,10 @@ class ClaimsImporter(worker.RabbitMQWorker):
         with app.session_scope() as session:
             kv = session.query(KeyValue).filter_by(key='last.check').first()
             if kv is None:
-                kv = KeyValue(key='last.check', value='1974-11-09T22:56:52.518001') #force update
+                kv = KeyValue(key='last.check', value='1974-11-09T22:56:52.518001Z') #force update
             
-            latest_point = parser.parse(kv.value) # RFC 3339 format
-            now = datetime.datetime.utcnow()
+            latest_point = get_date(kv.value) # RFC 3339 format
+            now = get_date()
             
             delta = now - latest_point
             if delta.total_seconds() > app.config.get('ORCID_CHECK_FOR_CHANGES', 60*5): #default 5min
@@ -87,7 +87,7 @@ class ClaimsImporter(worker.RabbitMQWorker):
                 
                 # data should be ordered by date update (but to be sure, let's check it); we'll save it
                 # as latest 'check point'
-                dates = [parser.parse(x['updated']) for x in data]
+                dates = [get_date(x['updated']) for x in data]
                 dates = sorted(dates, reverse=True)
                 
                 kv.value = dates[0].isoformat()
@@ -124,8 +124,9 @@ class ClaimsImporter(worker.RabbitMQWorker):
                         updt = str(profile['orcid-profile']['orcid-history']['last-modified-date']['value'])
                         updt = float('%s.%s' % (updt[0:10], updt[10:]))
                         updt = datetime.datetime.fromtimestamp(updt)
+                        updt = get_date(updt.isoformat())
                     except KeyError:
-                        updt = datetime.datetime.utcnow()
+                        updt = get_date()
                                             
                     # find the most recent #full-import record
                     last_update = session.query(ClaimsLog).filter(
@@ -135,7 +136,7 @@ class ClaimsImporter(worker.RabbitMQWorker):
                     if last_update is None:
                         q = session.query(ClaimsLog).filter_by(orcidid=orcidid).order_by(ClaimsLog.id.asc())
                     else:
-                        if last_update.created == updt:
+                        if get_date(last_update.created) == updt:
                             self.logger.info("Skipping {0} (profile unchanged)".format(orcidid))
                             continue
                         q = session.query(ClaimsLog).filter(

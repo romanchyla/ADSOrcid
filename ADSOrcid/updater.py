@@ -8,6 +8,7 @@ from . import matcher
 import app
 import json
 from .models import Records
+from .utils import get_date
 import datetime
 
 
@@ -28,7 +29,7 @@ def record_claims(bibcode, claims):
             claims = json.dumps(claims)
         r = session.query(Records).filter_by(bibcode=bibcode).first()
         if r is None:
-            t = datetime.datetime.utcnow()
+            t = get_date()
             r = Records(bibcode=bibcode, claims=claims, 
                         created=t,
                         updated=t,
@@ -54,7 +55,7 @@ def mark_processed(bibcode):
         r = session.query(Records).filter_by(bibcode=bibcode).first()
         if r is None:
             raise Exception('Nonexistant record for {0}'.format(bibcode))
-        r.processed = datetime.datetime.utcnow()
+        r.processed = get_date()
         session.commit()
         return True        
 
