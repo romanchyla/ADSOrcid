@@ -81,12 +81,23 @@ your local changes - only from github).
 If you /ADSOrcid/prod_config.py is available, it will copy and use it in place of
 `local_config.py`
 
-No ports are exposed, no SSH access is possible.
+No ports are exposed, no SSH access is possible. New releases will deployed automatically.
 
 Typical installation:
 
 1. `vim ADSOrcid/prod_config.py` # edit, edit...
 1. `vagrant up prod`
+
+
+production setup - docker way
+=============================
+
+1. cd manifests/production/app
+2. docker build --name ADSOrcid -t ADSOrcid .
+3. cd ../../.. 
+4. vim prod_config.py # edit, edit...
+4. dockerun -d -v .:/vagrant/ --name ADSOrcid ADSOrcid /sbin/my_init
+
 
 Here are some useful commands:
 
