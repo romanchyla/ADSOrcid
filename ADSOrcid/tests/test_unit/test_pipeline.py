@@ -14,11 +14,11 @@ from mock import patch
 from ADSOrcid.tests import test_base
 from ADSOrcid import matcher, app, updater, importer
 from ADSOrcid.models import AuthorInfo, ClaimsLog, Records, Base
-from ADSOrcid.pipeline import pworkers
+from ADSOrcid.pipeline import workers
 
 class TestWorkers(test_base.TestUnit):
     """
-    Tests the worker's methods
+    Tests the GenericWorker's methods
     """
     
     def create_app(self):
@@ -36,14 +36,14 @@ class TestWorkers(test_base.TestUnit):
         app.close_app()
         
     
-    @patch('ADSOrcid.pipeline.pworkers.ClaimsImporter.publish', return_value=None)
+    @patch('ADSOrcid.pipeline.ClaimsImporter.ClaimsImporter.publish', return_value=None)
     def test_import_worker(self, *args):
         """
         Receives claims from ADSWS; creates a record in the database
         and publishes into a queue
         """
         
-        worker = pworkers.ClaimsImporter()
+        worker = workers.ClaimsImporter.ClaimsImporter()
         worker.process_payload([{
                 'orcidid': '0000-0003-2686-9241',
                 'bibcode': 'foo',
@@ -71,13 +71,13 @@ class TestWorkers(test_base.TestUnit):
                                            'created': '2009-09-03T20:56:35.450686Z',
                                            'updated': '2009-09-03T20:56:35.450689Z'
                                            })
-    @patch('ADSOrcid.pipeline.pworkers.ClaimsIngester.publish', return_value=None)
+    @patch('ADSOrcid.pipeline.ClaimsIngester.ClaimsIngester.publish', return_value=None)
     def test_ingest_worker(self, *args):
         """
         Updates our knowledge about orcid and pushes updated claim to the queue
         """
         
-        worker = pworkers.ClaimsIngester()
+        worker = workers.ClaimsIngester.ClaimsIngester()
         worker.process_payload({'status': 'claimed', 
                                 'bibcode': 'foo', 
                                 'provenance': 'ClaimsImporter', 
@@ -110,13 +110,13 @@ class TestWorkers(test_base.TestUnit):
                                            'created': '2009-09-03T20:56:35.450686Z',
                                            'updated': '2009-09-03T20:56:35.450689Z'
                                            })
-    @patch('ADSOrcid.pipeline.pworkers.ClaimsIngester.publish', return_value=None)
+    @patch('ADSOrcid.pipeline.ClaimsIngester.ClaimsIngester.publish', return_value=None)
     def test_ingest_worker_blacklisted_author(self, *args):
         """
         Updates our knowledge about orcid and pushes updated claim to the queue
         """
         
-        worker = pworkers.ClaimsIngester()
+        worker = workers.ClaimsIngester.ClaimsIngester()
         worker.process_payload({'status': 'claimed', 
                                 'bibcode': 'foo', 
                                 'provenance': 'ClaimsImporter', 

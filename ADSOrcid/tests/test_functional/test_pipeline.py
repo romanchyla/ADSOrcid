@@ -11,8 +11,9 @@ import unittest
 import time
 import json
 from ADSOrcid.tests import test_base
-from ADSOrcid.pipeline import pworkers, worker
+from ADSOrcid.pipeline import workers, GenericWorker
 from ADSOrcid import app, models
+import subprocess
 
 class TestPipeline(test_base.TestFunctional):
     """
@@ -23,12 +24,48 @@ class TestPipeline(test_base.TestFunctional):
     These tests will use that config.
     """
 
+    def test_forwarding(self):
+        """Check the remote queue can receive a message from us
+        
+            You need to have `vagrant up imp` running
+            and the user which starts the test have
+            access to the docker
+        """
+        
+        worker = workers.OutputHandler.OutputHandler(params=app.config.get('WORKERS').get('OutputHandler'))
+        worker.connect(app.config.get('RABBITMQ_URL'))
+        
+        # crude way of testing stuf
+        init_state = subprocess.check_output('docker exec rabbitmq rabbitmqctl list_queues', shell=True)
+        init_state = init_state.split()
+        
+        if 'SolrUpdateQueue' not in init_state:
+            raise Exception('Either you have not started vagrant imp or we cannot access the docker container rabbitmq')
+        
+        init_val = int(init_state[init_state.index('SolrUpdateQueue') + 1])
+        
+        for x in range(100):
+            worker.process_payload({
+                                u'bibcode': u'2014ATel.6427....1V', 
+                                u'unverified': [u'0000-0003-3455-5082', u'-', u'-', u'-', u'0000-0001-6347-0649']})
+        
+        # crude way of testing stuff
+        fin_state = subprocess.check_output('docker exec rabbitmq rabbitmqctl list_queues', shell=True)
+        fin_state = fin_state.split()
+        
+        if 'SolrUpdateQueue' not in fin_state:
+            raise Exception('Either you have not started vagrant imp or we cannot access the docker container rabbitmq')
+        
+        fin_val = int(fin_state[init_state.index('SolrUpdateQueue') + 1])
+        self.assertGreater(fin_val, init_val, 'Hmm, seems like we failed to register updates to SolrUpdateQueue')
+        
+
     def test_mongodb_worker(self):
         """Check we can write into the mongodb; for this test
         you have to have the 'db' container running: vagrant up db
         """
         
-        worker = pworkers.MongoUpdater()
+        worker = workers.MongoUpdater.MongoUpdater()
         
         # clean up
         worker.mongodb['authors'].remove({'_id': 'bibcode'})
@@ -66,14 +103,21 @@ class TestPipeline(test_base.TestFunctional):
         :return: no return
         """
         
+        # fire up the real queue
+        self.TM.start_workers(verbose=True)
+        
         # clean the slate (production: 0000-0003-3041-2092, staging: 0000-0001-8178-9506) 
         with app.session_scope() as session:
             session.query(models.AuthorInfo).filter_by(orcidid='0000-0003-3041-2092').delete()
             session.query(models.ClaimsLog).filter_by(orcidid='0000-0003-3041-2092').delete()
             session.query(models.Records).filter_by(bibcode='2015ASPC..495..401C').delete()
-            
+            kv = session.query(models.KeyValue).filter_by(key='last.check').first()
+            if kv is None:
+                kv = models.KeyValue(key='last.check')
+            kv.value = '2051-11-09T22:56:52.518001Z'
+                
         # setup/check the MongoDB has the proper data for authors
-        mworker = pworkers.MongoUpdater()
+        mworker = workers.MongoUpdater.MongoUpdater(params=app.config.get('WORKERS').get('MongoUpdater'))
         mworker.mongodb[self.app.config.get('MONGODB_COLL', 'orcid_claims')].remove({'_id': '2015ASPC..495..401C'})
         r = mworker.mongodb['authors'].find_one({'_id': '2015ASPC..495..401C'})
         if not r or 'authors' not in r:
@@ -96,7 +140,7 @@ class TestPipeline(test_base.TestFunctional):
         
         
         
-        test_worker = worker.RabbitMQWorker(params={
+        test_worker = GenericWorker.RabbitMQWorker(params={
                             'publish': 'ads.orcid.fresh-claims',
                             'exchange': 'ads-orcid-test'
                         })

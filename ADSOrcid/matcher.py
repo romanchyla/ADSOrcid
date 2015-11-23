@@ -101,10 +101,10 @@ def harvest_author_info(orcidid, name=None, facts=None):
     # search for the orcidid in our database (but only the publisher populated fiels)
     # we can't trust other fiels to bootstrap our database
     r = requests.get(
-                '%(endpoint)s?q=%(query)s&fl=author,author_norm,orcid&rows=100&sort=pubdate+desc' % \
+                '%(endpoint)s?q=%(query)s&fl=author,author_norm,orcid_pub&rows=100&sort=pubdate+desc' % \
                 {
                  'endpoint': config.get('API_SOLR_QUERY_ENDPOINT'),
-                 'query' : 'orcid:%s' % cleanup_orcidid(orcidid),
+                 'query' : 'orcid_pub:%s' % cleanup_orcidid(orcidid),
                 },
                 headers={'Authorization': 'Bearer:%s' % config.get('API_TOKEN')})
     

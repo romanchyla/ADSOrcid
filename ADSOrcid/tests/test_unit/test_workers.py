@@ -15,15 +15,16 @@ import os
 import unittest
 import datetime
 from dateutil import parser
+from mock import patch
 
 from ADSOrcid.tests import test_base
 from ADSOrcid import app, importer
-from ADSOrcid.pipeline.pworkers import ClaimsImporter
+from ADSOrcid.pipeline import workers, ClaimsImporter
 from ADSOrcid.models import AuthorInfo, ClaimsLog, Records, Base, KeyValue
 
 class TestWorkers(test_base.TestUnit):
     """
-    Tests the worker's methods
+    Tests the GenericWorker's methods
     """
     
     def tearDown(self):
@@ -41,6 +42,16 @@ class TestWorkers(test_base.TestUnit):
         Base.metadata.create_all()
         return app
     
+    @patch('ADSOrcid.pipeline.OutputHandler.OutputHandler.forward', return_value=None)
+    def test_output_handler(self, *args):
+        """Check it is sending bibcodes"""
+        worker = workers.OutputHandler.OutputHandler()
+        worker.process_payload({
+                                u'bibcode': u'2014ATel.6427....1V', 
+                                u'unverified': [u'0000-0003-3455-5082', u'-', u'-', u'-', u'0000-0001-6347-0649', u'0000-0002-6082-5384', u'-', u'-', u'-', u'-', u'-', u'0000-0003-4666-119X', u'-', u'-', u'-', u'-', u'-', u'-', u'-', u'-', u'-', u'-', u'-', u'-', u'-', u'-', u'-', u'-', u'-', u'-', u'-', u'-', u'-', u'-', u'-', u'-', u'0000-0002-4590-0040', u'-', u'-', u'-', u'-', u'-', u'-', u'-', u'-', u'-', u'-', u'-', u'-', u'-', u'-', u'-', u'-', u'-']})
+        worker.forward.assert_called_with([u'2014ATel.6427....1V'], topic='SolrUpdateRoute')
+    
+    
     @httpretty.activate
     def test_ingester_logic(self):
         """Has to be able to diff orcid profile against the 
@@ -57,7 +68,7 @@ class TestWorkers(test_base.TestUnit):
             content_type='application/json',
             body=open(os.path.join(self.app.config['TEST_UNIT_DIR'], 'stub_data', orcidid + '.orcid-updates.json')).read())
         
-        worker = ClaimsImporter()
+        worker = ClaimsImporter.ClaimsImporter()
         worker.check_orcid_updates()
         
         with app.session_scope() as session:

@@ -35,7 +35,7 @@ def purge_queues(queues):
     publish_worker = RabbitMQWorker()
     publish_worker.connect(app.config.get('RABBITMQ_URL'))
 
-    for worker, wconfig in app.config.get('WORKERS').iteritems():
+    for GenericWorker, wconfig in app.config.get('WORKERS').iteritems():
             for x in ('publish', 'subscribe'):
                 if x in wconfig and wconfig[x]:
                     try:
@@ -62,13 +62,13 @@ def run_import(claims_file, queue='ads.orcid.claims', **kwargs):
     importer.import_recs(claims_file, collector=c)
     
     if len(c):
-        worker = RabbitMQWorker(params={
+        GenericWorker = RabbitMQWorker(params={
                             'publish': queue,
                             'exchange': app.config.get('EXCHANGE', 'ads-orcid')
                         })
-        worker.connect(app.config.get('RABBITMQ_URL'))
+        GenericWorker.connect(app.config.get('RABBITMQ_URL'))
         for claim in c:
-            worker.publish(claim)
+            GenericWorker.publish(claim)
         
     logger.info('Done processing {0} claims.'.format(len(c)))
 

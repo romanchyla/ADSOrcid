@@ -1,0 +1,10 @@
+#!/bin/bash
+
+cd /app
+
+sed -i -- 's#admin:password@localhost:5672/ADSimportpipeline#guest:guest@rabbitmq:5672#g' /app/pipeline/psettings.py
+sed -i -- 's/MONGO_ADSDATA..USER../#MONGO_ADSDATA ["USER"]/g' /app/settings.py
+sed -i -- 's/MONGO_ADSDATA..PASSWD../#MONGO_ADSDATA ["PASSWD"]/g' /app/settings.py
+sed -i -- 's/27018/27017/g' /app/settings.py
+sed -i -- 's/.MONGO_HOST.*localhost./"MONGO_HOST", "db"/g' /app/settings.py
+python /app/pipeline/ADSimportpipeline.py start

@@ -12,8 +12,7 @@ import time
 import json
 import pika
 from ADSOrcid import utils, app
-from ..pipeline import pstart
-from ..pipeline import worker
+from ..pipeline import pstart, workers, GenericWorker
 
 
 
@@ -67,7 +66,7 @@ class TestFunctional(TestUnit):
 
         self.TM = TM
         self.connect_publisher()
-        self.TM.start_workers(verbose=True)
+        #self.TM.start_workers(verbose=True)
         
         
     def create_app(self):
@@ -78,13 +77,13 @@ class TestFunctional(TestUnit):
 
     def connect_publisher(self):
         """
-        Makes a connection between the worker and the RabbitMQ instance, and
+        Makes a connection between the GenericWorker and the RabbitMQ instance, and
         sets up an attribute as a channel.
 
         :return: no return
         """
 
-        self.publish_worker = worker.RabbitMQWorker()
+        self.publish_worker = GenericWorker.RabbitMQWorker()
         self.ret_queue = self.publish_worker.connect(self.app.config.get('RABBITMQ_URL'))
 
         

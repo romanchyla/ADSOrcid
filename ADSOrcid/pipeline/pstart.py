@@ -19,8 +19,7 @@ import signal
 import sys
 import os
 from ADSOrcid import app
-from ADSOrcid.pipeline import pworkers as workers
-from ADSOrcid.pipeline.worker import RabbitMQWorker
+from ADSOrcid.pipeline import workers, GenericWorker
 from ADSOrcid.utils import setup_logging
 from copy import deepcopy
 
@@ -95,7 +94,7 @@ class TaskMaster(Singleton):
         :return: no return
         """
 
-        w = RabbitMQWorker()
+        w = GenericWorker.RabbitMQWorker()
         w.connect(self.rabbitmq_url)
         
         # make sure the exchange is there
@@ -228,7 +227,7 @@ class TaskMaster(Singleton):
             
             conc = params.get('concurrency', 1)
             while len(params['active']) < conc:
-                w = eval('workers.{0}'.format(worker))(params)
+                w = eval('workers.{0}.{0}'.format(worker))(params)
                 
                 # decide if we want to run it multiprocessing
                 if conc > 1:

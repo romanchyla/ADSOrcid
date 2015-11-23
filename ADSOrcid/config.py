@@ -70,7 +70,7 @@ WORKERS = {
     'MongoUpdater': {
         'concurrency': 1,
         'subscribe': 'ads.orcid.updates',
-        'publish': None,
+        'publish': 'ads.orcid.output',
         'error': 'ads.orcid.error',
         'durable': True
     },   
@@ -79,5 +79,13 @@ WORKERS = {
         'exchange': None,
         'publish': None,
         'durable' : False
+    },
+    'OutputHandler': {
+        'subscribe': 'ads.orcid.output',
+        'publish': None,
+        'forwarding': {
+            'exchange': 'MergerPipelineExchange',
+            'publish': 'SolrUpdateQueue'
+        }
     }
 }

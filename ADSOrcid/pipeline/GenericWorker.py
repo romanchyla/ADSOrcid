@@ -26,6 +26,8 @@ class RabbitMQWorker(object):
         self.exchange = params.get('exchange', None)
         self.publish_topic = None
         self.channel = None
+        self.fwd_topic = None
+        self.fwd_exchange = None
         if 'publish' in self.params and self.params['publish']:
             self.publish_topic = self.params['publish']
         
@@ -59,6 +61,22 @@ class RabbitMQWorker(object):
             for x in ('publish', 'subscribe'):
                 if x in self.params and self.params[x]:
                     self.channel.queue_declare(queue=self.params[x], passive=True)
+                    
+            if self.params.get('forwarding'):
+                fwd = self.params.get('forwarding')
+                self.fwd_connection = pika.BlockingConnection(pika.URLParameters(fwd.get('url', url)))
+                self.fwd_channel = self.fwd_connection.channel()
+                if fwd.get('confirm_delivery', confirm_delivery):
+                    self.fwd_channel.confirm_delivery()
+                    self.fwd_channel.basic_qos(prefetch_count=1)
+                if fwd.get('publish'):
+                    self.fwd_channel.queue_declare(queue=fwd['publish'], passive=True)
+                    self.fwd_topic = fwd['publish']
+                if fwd.get('exchange'):
+                    self.fwd_exchange = fwd['exchange']
+                else:
+                    raise Exception('exchange must be specified for forwarding')
+                    
             return True
         except:
             self.logger.error(sys.exc_info())
@@ -84,8 +102,31 @@ class RabbitMQWorker(object):
             routing_key = self.params.get('error', 'ads.orcid.error')
 
         self.publish(message, topic=routing_key, properties=kwargs['header_frame'])
-        
 
+
+    def forward(self, message, topic=None, **kwargs):
+        """
+        Forwards the message to another server/exchange/queue
+        """
+        
+        if not (topic or self.fwd_topic):
+            self.logger.error('Whaaaat? No forwarding topic/queue configured!')
+            return
+        
+        if not self.fwd_channel:
+            raise Exception('You must connect to a channel before caling forward()')
+        
+        self.logger.debug('Publish to {0} using topic {1}'.format(
+                                    self.fwd_exchange,
+                                    topic or self.fwd_topic))
+        
+        if not isinstance(message, basestring):
+            message = json.dumps(message)
+        self.fwd_channel.basic_publish(exchange=self.fwd_exchange,
+                                   routing_key=topic or self.fwd_topic,
+                                   body=message)
+        
+        
     def publish(self, message, topic=None, **kwargs):
         """
         Publishes messages to the queue. Uses the generic template for the
@@ -99,6 +140,7 @@ class RabbitMQWorker(object):
         """
 
         if not (topic or self.publish_topic):
+            self.logger.error('Whaaaat? No topic/queue configured!')
             return
         
         if not self.channel:

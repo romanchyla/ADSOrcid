@@ -39,6 +39,15 @@ Vagrant.configure("2") do |config|
         d.ports = ["6672:5672", "25672:15672"]
       end
     end
+    
+    config.vm.define "imp" do |app|
+      app.vm.provider "docker" do |d|
+        d.cmd     = ["/sbin/my_init", "--enable-insecure-key"]
+        d.build_dir = "manifests/development/import-pipeline"
+        d.has_ssh = true
+        d.name = "imp"
+      end
+    end
   
     config.ssh.username = "root"
     config.ssh.private_key_path = "insecure_key"
