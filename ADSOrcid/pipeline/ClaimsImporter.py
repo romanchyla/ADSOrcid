@@ -145,11 +145,11 @@ class ClaimsImporter(GenericWorker.RabbitMQWorker):
                             continue
                         bibc = cl.bibcode.lower()
                         if cl.status == 'removed':
-                            removed[bibc] = (cl.bibcode, cl.created)
+                            removed[bibc] = (cl.bibcode, get_date(cl.created))
                             if bibc in updated:
                                 del updated[bibc]
                         elif cl.status in ('claimed', 'updated'):
-                            updated[bibc] = (cl.bibcode, cl.created)
+                            updated[bibc] = (cl.bibcode, get_date(cl.created))
                             if bibc in removed:
                                 del removed[bibc]
                     
@@ -168,11 +168,12 @@ class ClaimsImporter(GenericWorker.RabbitMQWorker):
                                 # would you believe that orcid doesn't return floats?
                                 ts = str(w['last-modified-date']['value'])
                                 ts = float('%s.%s' % (ts[0:10], ts[10:]))
+                                ts = datetime.datetime.fromtimestamp(ts, tzutc())
                                 try:
                                     provenance = w['source']['source-name']['value']
                                 except KeyError:
                                     provenance = 'orcid-profile'
-                                orcid_present[bibc.lower().strip()] = (bibc.strip(), datetime.datetime.fromtimestamp(ts), provenance)
+                                orcid_present[bibc.lower().strip()] = (bibc.strip(), get_date(ts.isoformat()), provenance)
                         except KeyError, e:
                             self.logger.error('Error processing a record: '
                                 '{0} ({1})'.format(w,

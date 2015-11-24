@@ -78,13 +78,13 @@ class TestWorkers(test_base.TestUnit):
                 recs.append(x.toJSON())
             self.assertEqual(recs, [
                 {'status': u'#full-import', 'bibcode': u'', 'created': '2015-11-05T16:37:33.381000+00:00', 'provenance': u'ClaimsImporter', 'orcidid': u'0000-0003-3041-2092', 'id': 1},
-                {'status': u'claimed', 'bibcode': u'2015arXiv150304194A', 'created': '2015-09-16T06:59:01.721000+00:00', 'provenance': u'NASA ADS', 'orcidid': u'0000-0003-3041-2092', 'id': 2},
-                {'status': u'claimed', 'bibcode': u'2015AAS...22533655A', 'created': '2015-09-16T06:59:01.721000+00:00', 'provenance': u'NASA ADS', 'orcidid': u'0000-0003-3041-2092', 'id': 3},
-                {'status': u'claimed', 'bibcode': u'2014arXiv1406.4542H', 'created': '2015-09-16T06:59:01.721000+00:00', 'provenance': u'NASA ADS', 'orcidid': u'0000-0003-3041-2092', 'id': 4},
-                {'status': u'claimed', 'bibcode': u'2015arXiv150305881C', 'created': '2015-09-16T06:59:01.721000+00:00', 'provenance': u'Roman Chyla', 'orcidid': u'0000-0003-3041-2092', 'id': 5},
-                {'status': u'claimed', 'bibcode': u'2015ASPC..492..150T', 'created': '2015-09-16T06:59:01.721000+00:00', 'provenance': u'NASA ADS', 'orcidid': u'0000-0003-3041-2092', 'id': 6},
-                {'status': u'claimed', 'bibcode': u'2015ASPC..492..208G', 'created': '2015-09-16T06:59:01.721000+00:00', 'provenance': u'NASA ADS', 'orcidid': u'0000-0003-3041-2092', 'id': 7},
-                {'status': u'claimed', 'bibcode': u'2014AAS...22325503A', 'created': '2015-09-16T06:59:01.721000+00:00', 'provenance': u'NASA ADS', 'orcidid': u'0000-0003-3041-2092', 'id': 8}
+                {'status': u'claimed', 'bibcode': u'2015arXiv150304194A', 'created': '2015-09-16T10:59:01.721000+00:00', 'provenance': u'NASA ADS', 'orcidid': u'0000-0003-3041-2092', 'id': 2},
+                {'status': u'claimed', 'bibcode': u'2015AAS...22533655A', 'created': '2015-09-16T10:59:01.721000+00:00', 'provenance': u'NASA ADS', 'orcidid': u'0000-0003-3041-2092', 'id': 3},
+                {'status': u'claimed', 'bibcode': u'2014arXiv1406.4542H', 'created': '2015-09-16T10:59:01.721000+00:00', 'provenance': u'NASA ADS', 'orcidid': u'0000-0003-3041-2092', 'id': 4},
+                {'status': u'claimed', 'bibcode': u'2015arXiv150305881C', 'created': '2015-09-16T10:59:01.721000+00:00', 'provenance': u'Roman Chyla', 'orcidid': u'0000-0003-3041-2092', 'id': 5},
+                {'status': u'claimed', 'bibcode': u'2015ASPC..492..150T', 'created': '2015-09-16T10:59:01.721000+00:00', 'provenance': u'NASA ADS', 'orcidid': u'0000-0003-3041-2092', 'id': 6},
+                {'status': u'claimed', 'bibcode': u'2015ASPC..492..208G', 'created': '2015-09-16T10:59:01.721000+00:00', 'provenance': u'NASA ADS', 'orcidid': u'0000-0003-3041-2092', 'id': 7},
+                {'status': u'claimed', 'bibcode': u'2014AAS...22325503A', 'created': '2015-09-16T10:59:01.721000+00:00', 'provenance': u'NASA ADS', 'orcidid': u'0000-0003-3041-2092', 'id': 8}
             ])
             kv = session.query(KeyValue).filter(KeyValue.key == 'last.check').first()
             kv.value = ''
@@ -110,21 +110,21 @@ class TestWorkers(test_base.TestUnit):
                 recs.append(x.toJSON())
             self.assertEqual(recs,
                 [{'status': u'#full-import', 'bibcode': u'', 'created': '2015-11-05T16:37:33.382000+00:00', 'provenance': u'ClaimsImporter', 'orcidid': u'0000-0003-3041-2092', 'id': 1}, 
-                {'status': u'claimed', 'bibcode': u'2015arXiv150304194A', 'created': '2015-09-16T06:59:01.721000+00:00', 'provenance': u'NASA ADS', 'orcidid': u'0000-0003-3041-2092', 'id': 2}, 
-                {'status': u'claimed', 'bibcode': u'2015AAS...22533655A', 'created': '2015-09-16T06:59:01.721000+00:00', 'provenance': u'NASA ADS', 'orcidid': u'0000-0003-3041-2092', 'id': 3}, 
-                {'status': u'claimed', 'bibcode': u'2014arXiv1406.4542H', 'created': '2015-09-16T06:59:01.721000+00:00', 'provenance': u'NASA ADS', 'orcidid': u'0000-0003-3041-2092', 'id': 4}, 
-                {'status': u'claimed', 'bibcode': u'2015arXiv150305881C', 'created': '2015-09-16T06:59:01.721000+00:00', 'provenance': u'Roman Chyla', 'orcidid': u'0000-0003-3041-2092', 'id': 5}, 
-                {'status': u'claimed', 'bibcode': u'2015ASPC..492..150T', 'created': '2015-09-16T06:59:01.721000+00:00', 'provenance': u'NASA ADS', 'orcidid': u'0000-0003-3041-2092', 'id': 6}, 
-                {'status': u'claimed', 'bibcode': u'2015ASPC..492..208G', 'created': '2015-09-16T06:59:01.721000+00:00', 'provenance': u'NASA ADS', 'orcidid': u'0000-0003-3041-2092', 'id': 7}, 
-                {'status': u'claimed', 'bibcode': u'2014AAS...22325503A', 'created': '2015-09-16T06:59:01.721000+00:00', 'provenance': u'NASA ADS', 'orcidid': u'0000-0003-3041-2092', 'id': 8}, 
+                {'status': u'claimed', 'bibcode': u'2015arXiv150304194A', 'created': '2015-09-16T10:59:01.721000+00:00', 'provenance': u'NASA ADS', 'orcidid': u'0000-0003-3041-2092', 'id': 2}, 
+                {'status': u'claimed', 'bibcode': u'2015AAS...22533655A', 'created': '2015-09-16T10:59:01.721000+00:00', 'provenance': u'NASA ADS', 'orcidid': u'0000-0003-3041-2092', 'id': 3}, 
+                {'status': u'claimed', 'bibcode': u'2014arXiv1406.4542H', 'created': '2015-09-16T10:59:01.721000+00:00', 'provenance': u'NASA ADS', 'orcidid': u'0000-0003-3041-2092', 'id': 4}, 
+                {'status': u'claimed', 'bibcode': u'2015arXiv150305881C', 'created': '2015-09-16T10:59:01.721000+00:00', 'provenance': u'Roman Chyla', 'orcidid': u'0000-0003-3041-2092', 'id': 5}, 
+                {'status': u'claimed', 'bibcode': u'2015ASPC..492..150T', 'created': '2015-09-16T10:59:01.721000+00:00', 'provenance': u'NASA ADS', 'orcidid': u'0000-0003-3041-2092', 'id': 6}, 
+                {'status': u'claimed', 'bibcode': u'2015ASPC..492..208G', 'created': '2015-09-16T10:59:01.721000+00:00', 'provenance': u'NASA ADS', 'orcidid': u'0000-0003-3041-2092', 'id': 7}, 
+                {'status': u'claimed', 'bibcode': u'2014AAS...22325503A', 'created': '2015-09-16T10:59:01.721000+00:00', 'provenance': u'NASA ADS', 'orcidid': u'0000-0003-3041-2092', 'id': 8}, 
                 {'status': u'#full-import', 'bibcode': u'', 'created': '2015-11-05T16:37:33.381000+00:00', 'provenance': u'ClaimsImporter', 'orcidid': u'0000-0003-3041-2092', 'id': 9}, 
-                {'status': u'unchanged', 'bibcode': u'2015arXiv150304194A', 'created': '2015-09-16T06:59:01.721000+00:00', 'provenance': u'ClaimsImporter', 'orcidid': u'0000-0003-3041-2092', 'id': 10}, 
-                {'status': u'unchanged', 'bibcode': u'2015AAS...22533655A', 'created': '2015-09-16T06:59:01.721000+00:00', 'provenance': u'ClaimsImporter', 'orcidid': u'0000-0003-3041-2092', 'id': 11}, 
-                {'status': u'unchanged', 'bibcode': u'2014arXiv1406.4542H', 'created': '2015-09-16T06:59:01.721000+00:00', 'provenance': u'ClaimsImporter', 'orcidid': u'0000-0003-3041-2092', 'id': 12}, 
-                {'status': u'unchanged', 'bibcode': u'2015arXiv150305881C', 'created': '2015-09-16T06:59:01.721000+00:00', 'provenance': u'ClaimsImporter', 'orcidid': u'0000-0003-3041-2092', 'id': 13}, 
-                {'status': u'unchanged', 'bibcode': u'2015ASPC..492..150T', 'created': '2015-09-16T06:59:01.721000+00:00', 'provenance': u'ClaimsImporter', 'orcidid': u'0000-0003-3041-2092', 'id': 14}, 
-                {'status': u'unchanged', 'bibcode': u'2015ASPC..492..208G', 'created': '2015-09-16T06:59:01.721000+00:00', 'provenance': u'ClaimsImporter', 'orcidid': u'0000-0003-3041-2092', 'id': 15}, 
-                {'status': u'unchanged', 'bibcode': u'2014AAS...22325503A', 'created': '2015-09-16T06:59:01.721000+00:00', 'provenance': u'ClaimsImporter', 'orcidid': u'0000-0003-3041-2092', 'id': 16} 
+                {'status': u'unchanged', 'bibcode': u'2015arXiv150304194A', 'created': '2015-09-16T10:59:01.721000+00:00', 'provenance': u'ClaimsImporter', 'orcidid': u'0000-0003-3041-2092', 'id': 10}, 
+                {'status': u'unchanged', 'bibcode': u'2015AAS...22533655A', 'created': '2015-09-16T10:59:01.721000+00:00', 'provenance': u'ClaimsImporter', 'orcidid': u'0000-0003-3041-2092', 'id': 11}, 
+                {'status': u'unchanged', 'bibcode': u'2014arXiv1406.4542H', 'created': '2015-09-16T10:59:01.721000+00:00', 'provenance': u'ClaimsImporter', 'orcidid': u'0000-0003-3041-2092', 'id': 12}, 
+                {'status': u'unchanged', 'bibcode': u'2015arXiv150305881C', 'created': '2015-09-16T10:59:01.721000+00:00', 'provenance': u'ClaimsImporter', 'orcidid': u'0000-0003-3041-2092', 'id': 13}, 
+                {'status': u'unchanged', 'bibcode': u'2015ASPC..492..150T', 'created': '2015-09-16T10:59:01.721000+00:00', 'provenance': u'ClaimsImporter', 'orcidid': u'0000-0003-3041-2092', 'id': 14}, 
+                {'status': u'unchanged', 'bibcode': u'2015ASPC..492..208G', 'created': '2015-09-16T10:59:01.721000+00:00', 'provenance': u'ClaimsImporter', 'orcidid': u'0000-0003-3041-2092', 'id': 15}, 
+                {'status': u'unchanged', 'bibcode': u'2014AAS...22325503A', 'created': '2015-09-16T10:59:01.721000+00:00', 'provenance': u'ClaimsImporter', 'orcidid': u'0000-0003-3041-2092', 'id': 16} 
                 ])
             
         # now let's pretend that we have one extra claim and there was one deletion
@@ -144,21 +144,21 @@ class TestWorkers(test_base.TestUnit):
                 recs.append(x.toJSON())
             self.assertEqual(recs,
                 [{'status': u'#full-import', 'bibcode': u'', 'created': '2015-11-05T16:37:33.382000+00:00', 'provenance': u'ClaimsImporter', 'orcidid': u'0000-0003-3041-2092', 'id': 1},
-                {'status': u'claimed', 'bibcode': u'2015arXiv150304194A', 'created': '2015-09-16T06:59:01.721000+00:00', 'provenance': u'NASA ADS', 'orcidid': u'0000-0003-3041-2092', 'id': 2},
-                {'status': u'claimed', 'bibcode': u'2015AAS...22533655A', 'created': '2015-09-16T06:59:01.721000+00:00', 'provenance': u'NASA ADS', 'orcidid': u'0000-0003-3041-2092', 'id': 3},
-                {'status': u'claimed', 'bibcode': u'2014arXiv1406.4542H', 'created': '2015-09-16T06:59:01.721000+00:00', 'provenance': u'NASA ADS', 'orcidid': u'0000-0003-3041-2092', 'id': 4},
-                {'status': u'claimed', 'bibcode': u'2015ASPC..492..150T', 'created': '2015-09-16T06:59:01.721000+00:00', 'provenance': u'NASA ADS', 'orcidid': u'0000-0003-3041-2092', 'id': 6},
-                {'status': u'claimed', 'bibcode': u'2015ASPC..492..208G', 'created': '2015-09-16T06:59:01.721000+00:00', 'provenance': u'NASA ADS', 'orcidid': u'0000-0003-3041-2092', 'id': 7},
-                {'status': u'claimed', 'bibcode': u'2014AAS...22325503A', 'created': '2015-09-16T06:59:01.721000+00:00', 'provenance': u'NASA ADS', 'orcidid': u'0000-0003-3041-2092', 'id': 8},
+                {'status': u'claimed', 'bibcode': u'2015arXiv150304194A', 'created': '2015-09-16T10:59:01.721000+00:00', 'provenance': u'NASA ADS', 'orcidid': u'0000-0003-3041-2092', 'id': 2},
+                {'status': u'claimed', 'bibcode': u'2015AAS...22533655A', 'created': '2015-09-16T10:59:01.721000+00:00', 'provenance': u'NASA ADS', 'orcidid': u'0000-0003-3041-2092', 'id': 3},
+                {'status': u'claimed', 'bibcode': u'2014arXiv1406.4542H', 'created': '2015-09-16T10:59:01.721000+00:00', 'provenance': u'NASA ADS', 'orcidid': u'0000-0003-3041-2092', 'id': 4},
+                {'status': u'claimed', 'bibcode': u'2015ASPC..492..150T', 'created': '2015-09-16T10:59:01.721000+00:00', 'provenance': u'NASA ADS', 'orcidid': u'0000-0003-3041-2092', 'id': 6},
+                {'status': u'claimed', 'bibcode': u'2015ASPC..492..208G', 'created': '2015-09-16T10:59:01.721000+00:00', 'provenance': u'NASA ADS', 'orcidid': u'0000-0003-3041-2092', 'id': 7},
+                {'status': u'claimed', 'bibcode': u'2014AAS...22325503A', 'created': '2015-09-16T10:59:01.721000+00:00', 'provenance': u'NASA ADS', 'orcidid': u'0000-0003-3041-2092', 'id': 8},
                 {'status': u'removed', 'bibcode': u'2014AAS...22325503A', 'created': '2015-11-05T11:37:33.381000+00:00', 'provenance': u'None', 'orcidid': u'0000-0003-3041-2092', 'id': 9},
                 {'status': u'#full-import', 'bibcode': u'', 'created': '2015-11-05T16:37:33.381000+00:00', 'provenance': u'ClaimsImporter', 'orcidid': u'0000-0003-3041-2092', 'id': 10},
-                {'status': u'claimed', 'bibcode': u'2015arXiv150305881C', 'created': '2015-09-16T06:59:01.721000+00:00', u'provenance': 'Roman Chyla', 'orcidid': u'0000-0003-3041-2092', 'id': 11},
-                {'status': u'claimed', 'bibcode': u'2014AAS...22325503A', 'created': '2015-09-16T06:59:01.721000+00:00', u'provenance': 'NASA ADS', 'orcidid': u'0000-0003-3041-2092', 'id': 12},
-                {'status': u'unchanged', 'bibcode': u'2014arXiv1406.4542H', 'created': '2015-09-16T06:59:01.721000+00:00', u'provenance': 'ClaimsImporter', 'orcidid': u'0000-0003-3041-2092', 'id': 13},
-                {'status': u'unchanged', 'bibcode': u'2015ASPC..492..150T', 'created': '2015-09-16T06:59:01.721000+00:00', u'provenance': 'ClaimsImporter', 'orcidid': u'0000-0003-3041-2092', 'id': 14},
-                {'status': u'unchanged', 'bibcode': u'2015ASPC..492..208G', 'created': '2015-09-16T06:59:01.721000+00:00', u'provenance': 'ClaimsImporter', 'orcidid': u'0000-0003-3041-2092', 'id': 15},
-                {'status': u'unchanged', 'bibcode': u'2015arXiv150304194A', 'created': '2015-09-16T06:59:01.721000+00:00', u'provenance': 'ClaimsImporter', 'orcidid': u'0000-0003-3041-2092', 'id': 16},
-                {'status': u'unchanged', 'bibcode': u'2015AAS...22533655A', 'created': '2015-09-16T06:59:01.721000+00:00', u'provenance': 'ClaimsImporter', 'orcidid': u'0000-0003-3041-2092', 'id': 17}
+                {'status': u'claimed', 'bibcode': u'2015arXiv150305881C', 'created': '2015-09-16T10:59:01.721000+00:00', u'provenance': 'Roman Chyla', 'orcidid': u'0000-0003-3041-2092', 'id': 11},
+                {'status': u'claimed', 'bibcode': u'2014AAS...22325503A', 'created': '2015-09-16T10:59:01.721000+00:00', u'provenance': 'NASA ADS', 'orcidid': u'0000-0003-3041-2092', 'id': 12},
+                {'status': u'unchanged', 'bibcode': u'2014arXiv1406.4542H', 'created': '2015-09-16T10:59:01.721000+00:00', u'provenance': 'ClaimsImporter', 'orcidid': u'0000-0003-3041-2092', 'id': 13},
+                {'status': u'unchanged', 'bibcode': u'2015ASPC..492..150T', 'created': '2015-09-16T10:59:01.721000+00:00', u'provenance': 'ClaimsImporter', 'orcidid': u'0000-0003-3041-2092', 'id': 14},
+                {'status': u'unchanged', 'bibcode': u'2015ASPC..492..208G', 'created': '2015-09-16T10:59:01.721000+00:00', u'provenance': 'ClaimsImporter', 'orcidid': u'0000-0003-3041-2092', 'id': 15},
+                {'status': u'unchanged', 'bibcode': u'2015arXiv150304194A', 'created': '2015-09-16T10:59:01.721000+00:00', u'provenance': 'ClaimsImporter', 'orcidid': u'0000-0003-3041-2092', 'id': 16},
+                {'status': u'unchanged', 'bibcode': u'2015AAS...22533655A', 'created': '2015-09-16T10:59:01.721000+00:00', u'provenance': 'ClaimsImporter', 'orcidid': u'0000-0003-3041-2092', 'id': 17}
                 ])
 
 
