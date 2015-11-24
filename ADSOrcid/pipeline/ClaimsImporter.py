@@ -9,6 +9,7 @@ import requests
 import datetime
 import threading
 from sqlalchemy import and_
+from dateutil.tz import tzutc
 
 class ClaimsImporter(GenericWorker.RabbitMQWorker):
     """
@@ -114,7 +115,7 @@ class ClaimsImporter(GenericWorker.RabbitMQWorker):
                     try:
                         updt = str(profile['orcid-profile']['orcid-history']['last-modified-date']['value'])
                         updt = float('%s.%s' % (updt[0:10], updt[10:]))
-                        updt = datetime.datetime.fromtimestamp(updt)
+                        updt = datetime.datetime.fromtimestamp(updt, tzutc())
                         updt = get_date(updt.isoformat())
                     except KeyError:
                         updt = get_date()
