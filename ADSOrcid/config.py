@@ -83,6 +83,7 @@ WORKERS = {
     'OutputHandler': {
         'subscribe': 'ads.orcid.output',
         'publish': None,
+        'durable': True,
         'forwarding': {
             'exchange': 'MergerPipelineExchange',
             'publish': 'SolrUpdateQueue'

@@ -142,10 +142,10 @@ def harvest_author_info(orcidid, name=None, facts=None):
 def _extract_names(orcidid, doc):
     o = cleanup_orcidid(orcidid)
     r = {}
-    if 'orcid' not in doc:
+    if 'orcid_pub' not in doc:
         raise Exception('Solr doc is missing orcid field')
     
-    orcids = [cleanup_orcidid(x) for x in doc['orcid']]
+    orcids = [cleanup_orcidid(x) for x in doc['orcid_pub']]
     idx = None
     try:
         idx = orcids.index(o)
