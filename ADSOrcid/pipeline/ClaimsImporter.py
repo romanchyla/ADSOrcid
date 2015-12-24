@@ -24,16 +24,16 @@ class ClaimsImporter(GenericWorker.RabbitMQWorker):
     def start_cronjob(self):
         """Initiates the task in the background"""
         self.keep_running = True
-        def runner(GenericWorker):
+        def runner(worker):
             time.sleep(1)
-            while GenericWorker.keep_running:
+            while worker.keep_running:
                 try:
                     # keep consuming the remote stream until there is 0 recs
-                    while GenericWorker.check_orcid_updates():
+                    while worker.check_orcid_updates():
                         pass
                     time.sleep(app.config.get('ORCID_CHECK_FOR_CHANGES', 60*5) / 2)
                 except Exception, e:
-                    GenericWorker.logger.error('Error fetching profiles: '
+                    worker.logger.error('Error fetching profiles: '
                                 '{0} ({1})'.format(e.message,
                                                    traceback.format_exc()))
         

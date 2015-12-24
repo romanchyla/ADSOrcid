@@ -16,8 +16,8 @@ import time
 import pika
 import argparse
 import json
-from ADSOrcid import app, importer
-from ADSOrcid.pipeline.worker import RabbitMQWorker
+from ADSOrcid import app, importer, check_orcidids
+from ADSOrcid.pipeline.GenericWorker import RabbitMQWorker
 from ADSOrcid.pipeline import pstart
 from ADSOrcid.utils import setup_logging
 
@@ -35,7 +35,7 @@ def purge_queues(queues):
     publish_worker = RabbitMQWorker()
     publish_worker.connect(app.config.get('RABBITMQ_URL'))
 
-    for GenericWorker, wconfig in app.config.get('WORKERS').iteritems():
+    for worker, wconfig in app.config.get('WORKERS').iteritems():
             for x in ('publish', 'subscribe'):
                 if x in wconfig and wconfig[x]:
                     try:
@@ -62,16 +62,31 @@ def run_import(claims_file, queue='ads.orcid.claims', **kwargs):
     importer.import_recs(claims_file, collector=c)
     
     if len(c):
-        GenericWorker = RabbitMQWorker(params={
+        worker = RabbitMQWorker(params={
                             'publish': queue,
                             'exchange': app.config.get('EXCHANGE', 'ads-orcid')
                         })
-        GenericWorker.connect(app.config.get('RABBITMQ_URL'))
+        worker.connect(app.config.get('RABBITMQ_URL'))
         for claim in c:
-            GenericWorker.publish(claim)
+            worker.publish(claim)
         
     logger.info('Done processing {0} claims.'.format(len(c)))
 
+def run_recheck(queue='ads.orcid.reindex', **kwargs):
+    """
+    Compare state of the orcid-service, discover missing
+    orcidids and reindex them
+    
+    :param: start_point - RFC3229 date formatted string
+    :type: str
+    :param: queue - where to send the claims
+    :type: str (ads.orcid.reindex)
+    
+    :return: no return
+    """
+    check_orcidids.run()
+    
+    
 
 def start_pipeline():
     """Starts the workers and let them do their job"""
@@ -97,6 +112,12 @@ if __name__ == '__main__':
                         type=str,
                         help='Path to the claims file to import')
     
+    parser.add_argument('-r',
+                        '--recheck_database',
+                        dest='recheck_database',
+                        action='store_true',
+                        help='Compare orcid-service and re-index missing')
+    
     parser.add_argument('-p',
                         '--start_pipeline',
                         dest='start_pipeline',
@@ -105,6 +126,7 @@ if __name__ == '__main__':
     
     parser.set_defaults(purge_queues=False)
     parser.set_defaults(start_pipeline=False)
+    parser.set_defaults(recheck_database=False)
     args = parser.parse_args()
     
     app.init_app()
@@ -112,7 +134,6 @@ if __name__ == '__main__':
     work_done = False
     if args.purge_queues:
         purge_queues(app.config.get('WORKERS'))
-        sys.exit(0)
 
     if args.start_pipeline:
         start_pipeline()
@@ -121,6 +142,10 @@ if __name__ == '__main__':
     if args.import_claims:
         # Send the files to be put on the queue
         run_import(args.import_claims)
+        work_done = True
+        
+    if args.recheck_database:
+        run_recheck(args)
         work_done = True
         
     if not work_done:
