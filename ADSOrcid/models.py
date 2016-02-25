@@ -65,3 +65,19 @@ class Records(Base):
                 }
 
     
+class ChangeLog(Base):
+    __tablename__ = 'changes_log'
+    id = Column(Integer, primary_key=True)
+    created = Column(TIMESTAMP, default=get_date)
+    key = Column(String(255))
+    oldvalue = Column(Text)
+    newvalue = Column(Text)
+    
+    
+    def toJSON(self):
+        return {'id': self.id, 
+                'key': self.key,
+                'created': self.created and get_date(self.created).isoformat() or None,
+                'newvalue': self.newvalue,
+                'oldvalue': self.oldvalue
+                }

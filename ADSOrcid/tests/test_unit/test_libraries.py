@@ -21,7 +21,7 @@ from io import BytesIO
 
 from ADSOrcid.tests import test_base
 from ADSOrcid import matcher, app, updater, importer, utils
-from ADSOrcid.models import AuthorInfo, ClaimsLog, Records, Base
+from ADSOrcid.models import AuthorInfo, ClaimsLog, Records, Base, ChangeLog
 
 class TestMatcherUpdater(test_base.TestUnit):
     """
@@ -142,7 +142,51 @@ class TestMatcherUpdater(test_base.TestUnit):
                                           author)
         
             self.assertTrue(self.app.session.query(AuthorInfo).first().orcidid, '0000-0003-2686-9241')
+    
+    
+    def test_update_author(self):
+        """Has to update AuthorInfo and also create a log of events about the changes."""
         
+        # bootstrap the db with already existing author info
+        with app.session_scope() as session:
+            ainfo = AuthorInfo(orcidid='0000-0003-2686-9241',
+                               facts=json.dumps({'orcid_name': [u'Stern, Daniel'],
+                                    'author': [u'Stern, D', u'Stern, D K', u'Stern, Daniel'],
+                                    'author_norm': [u'Stern, D'],
+                                    'name': u'Stern, D K'
+                                    }),
+                               )
+            session.add(ainfo)
+            session.commit()
+        
+        with app.session_scope() as session:
+            ainfo = session.query(AuthorInfo).filter_by(orcidid='0000-0003-2686-9241').first()
+            with mock.patch('ADSOrcid.matcher.harvest_author_info', return_value= {'orcid_name': [u'Sternx, Daniel'],
+                                        'author': [u'Stern, D', u'Stern, D K', u'Sternx, Daniel'],
+                                        'author_norm': [u'Stern, D'],
+                                        'name': u'Sternx, D K'
+                                        }
+                    ) as context:
+                matcher.cache.clear()
+                matcher.orcid_cache.clear()
+                author = matcher.retrieve_orcid('0000-0003-2686-9241')
+                self.assertDictContainsSubset({'status': None, 
+                                               'name': u'Sternx, D K', 
+                                               'facts': {u'author': [u'Stern, D', u'Stern, D K', u'Sternx, Daniel'], u'orcid_name': [u'Sternx, Daniel'], u'author_norm': [u'Stern, D'], u'name': u'Sternx, D K'}, 
+                                               'orcidid': u'0000-0003-2686-9241', 
+                                               'id': 1, 
+                                               'account_id': None}, 
+                                              author)
+                self.assertDictContainsSubset({'oldvalue': json.dumps([u'Stern, Daniel']),
+                                               'newvalue': json.dumps([u'Sternx, Daniel'])},
+                                              session.query(ChangeLog).filter_by(key='0000-0003-2686-9241:update:orcid_name').first().toJSON())
+                self.assertDictContainsSubset({'oldvalue': json.dumps(u'Stern, D K'),
+                                               'newvalue': json.dumps(u'Sternx, D K')},
+                                              session.query(ChangeLog).filter_by(key='0000-0003-2686-9241:update:name').first().toJSON())
+                self.assertDictContainsSubset({'oldvalue': json.dumps([u'Stern, D', u'Stern, D K', u'Stern, Daniel']),
+                                               'newvalue': json.dumps([u'Stern, D', u'Stern, D K', u'Sternx, Daniel'])},
+                                              session.query(ChangeLog).filter_by(key='0000-0003-2686-9241:update:author').first().toJSON())
+    
 
     def test_update_record(self):
         """

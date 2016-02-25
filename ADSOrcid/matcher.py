@@ -1,6 +1,6 @@
 from app import session_scope, config
 from . import app
-from .models import AuthorInfo
+from .models import AuthorInfo, ChangeLog
 import requests
 import json
 import cachetools
@@ -21,7 +21,7 @@ def retrieve_orcid(orcid):
     with session_scope() as session:
         u = session.query(AuthorInfo).filter_by(orcidid=orcid).first()
         if u is not None:
-            return u.toJSON()
+            return update_author(u)
         u = create_orcid(orcid)
         session.add(u)
         session.commit()
@@ -36,6 +36,49 @@ def get_public_orcid_profile(orcidid):
         return None
     else:
         return r.json()
+
+
+def update_author(author):
+    """Updates existing AuthorInfo records. 
+    
+    It will check for new information. If there is a difference,
+    updates the record and also records the old values.
+    
+    :param: author - AuthorInfo instance
+    
+    :return: AuthorInfo object
+    
+    :sideeffect: Will insert new records (ChangeLog) and also update
+     the author instance
+    """
+    try:
+        new_facts = harvest_author_info(author.orcidid)
+    except:
+        return author.toJSON()
+    
+    info = author.toJSON()
+    with session_scope() as session:
+        old_facts = info['facts']
+        attrs = set(new_facts.keys())
+        attrs = attrs.union(old_facts.keys())
+        is_dirty = False
+        
+        for attname in attrs:
+            if old_facts.get(attname, None) != new_facts.get(attname, None):
+                session.add(ChangeLog(key='{0}:update:{1}'.format(author.orcidid, attname), 
+                           oldvalue=json.dumps(old_facts.get(attname, None)),
+                           newvalue=json.dumps(new_facts.get(attname, None))))
+                is_dirty = True
+            
+        if is_dirty:
+            author.facts = json.dumps(new_facts)
+            author.name = new_facts.get('name', author.name)
+            aid=author.id
+            session.commit()
+            return session.query(AuthorInfo).filter_by(id=aid).first().toJSON()
+        else:
+            return info
+    
    
 def create_orcid(orcid, name=None, facts=None):
     """
