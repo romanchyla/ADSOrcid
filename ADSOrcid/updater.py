@@ -131,7 +131,10 @@ def find_orcid_position(authors_list, name_variants):
     # sort results from the highest match
     res = sorted(res, key=lambda x: x[0], reverse=True)
     
-    if res[0] < app.config.get('MIN_LEVENSHTEIN_RATIO', 0.9):
+    if len(res) == 0:
+        return -1
+    
+    if res[0][0] < app.config.get('MIN_LEVENSHTEIN_RATIO', 0.9):
         app.logger.debug('No match found: the closest is: %s (required:%s)' \
                         % (res[0], app.config.get('MIN_LEVENSHTEIN_RATIO', 0.9)))
         return -1

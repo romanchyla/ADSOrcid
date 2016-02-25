@@ -231,6 +231,17 @@ class TestMatcherUpdater(test_base.TestUnit):
         )
         self.assertEqual(res, 12)
         
+        # check that the author cannot claim what doesn't look like their 
+        # own paper
+        
+        res = updater.find_orcid_position([
+               "Erdmann, Christopher",
+               "Frey, Katie"
+               ], 
+              ["Accomazzi, Alberto"]);
+        self.assertEqual(res, -1)
+
+
     def test_update_database(self):
         """Inserts a record (of claims) into the database"""
         updater.record_claims('bibcode', {'verified': ['foo', '-', 'bar'], 'unverified': ['-', '-', '-']})
