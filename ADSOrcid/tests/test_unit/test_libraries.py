@@ -18,7 +18,7 @@ import math
 import httpretty
 import mock
 from io import BytesIO
-
+ 
 from ADSOrcid.tests import test_base
 from ADSOrcid import matcher, app, updater, importer, utils
 from ADSOrcid.models import AuthorInfo, ClaimsLog, Records, Base, ChangeLog
@@ -78,6 +78,28 @@ class TestMatcherUpdater(test_base.TestUnit):
 
         self.assertDictEqual(rec.toJSON(),
              {'bibcode': 'foo', 'created': '2009-09-03T20:56:35.450686+00:00', 'updated': None, 'processed': None, 'claims': {}, 'id': None})
+        
+        with self.assertRaisesRegexp(Exception, 'IntegrityError'):
+            with app.session_scope() as session:
+                c = ClaimsLog(bibcode='foo', orcidid='bar', status='hey')
+                session.add(c)
+                session.commit()
+        
+        for s in ['blacklisted', 'postponed']:
+            with app.session_scope() as session:
+                session.add(AuthorInfo(orcidid='bar' + s, status=s))
+                session.commit()
+        
+        with self.assertRaisesRegexp(Exception, 'IntegrityError'):
+            with app.session_scope() as session:
+                c = AuthorInfo(orcidid='bar', status='hey')
+                session.add(c)
+                session.commit()
+        
+        for s in ['claimed', 'updated', 'removed', 'unchanged', '#full-import']:
+            with app.session_scope() as session:
+                session.add(ClaimsLog(bibcode='foo'+s, orcidid='bar', status=s))
+                session.commit()
     
     @httpretty.activate
     def test_harvest_author_info(self):
@@ -180,6 +202,7 @@ class TestMatcherUpdater(test_base.TestUnit):
                     ) as context:
                 matcher.cache.clear()
                 matcher.orcid_cache.clear()
+                matcher.ads_cache.clear()
                 author = matcher.retrieve_orcid('0000-0003-2686-9241')
                 self.assertDictContainsSubset({'status': None, 
                                                'name': u'Sternx, D K', 
@@ -207,6 +230,7 @@ class TestMatcherUpdater(test_base.TestUnit):
                     ) as context:
                 matcher.cache.clear()
                 matcher.orcid_cache.clear()
+                matcher.ads_cache.clear()
                 author = matcher.retrieve_orcid('0000-0003-2686-9241')
                 self.assertDictContainsSubset({'status': None, 
                                                'name': u'Sternx, D K', 
@@ -355,7 +379,7 @@ class TestMatcherUpdater(test_base.TestUnit):
                                  "b123456789123456789\t0000-0000-0000-0001",
                                  "b123456789123456789\t0000-0000-0000-0002\tarxiv",
                                  "b123456789123456789\t0000-0000-0000-0003\tarxiv\tclaimed",
-                                 "b123456789123456789\t0000-0000-0000-0004\tfoo        \tcreated\t2008-09-03T20:56:35.450686Z",
+                                 "b123456789123456789\t0000-0000-0000-0004\tfoo        \tclaimed\t2008-09-03T20:56:35.450686Z",
                                  "b123456789123456789\t0000-0000-0000-0005",
                                  "b123456789123456789\t0000-0000-0000-0006",
                                  "b123456789123456789\t0000-0000-0000-0004\tfoo        \tupdated\t2009-09-03T20:56:35.450686Z",

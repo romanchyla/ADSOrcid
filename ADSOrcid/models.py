@@ -2,6 +2,7 @@
 
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import Column, Integer, String, Text, TIMESTAMP
+from sqlalchemy.types import Enum
 import datetime
 import json
 from .utils import get_date
@@ -19,7 +20,7 @@ class AuthorInfo(Base):
     orcidid = Column(String(19), unique=True)
     name = Column(String(255))
     facts = Column(Text)
-    status = Column(String(255))
+    status = Column(Enum('blacklisted', 'postponed'))
     account_id = Column(Integer)
     created = Column(TIMESTAMP, default=get_date)
     updated = Column(TIMESTAMP, default=get_date)
@@ -37,7 +38,7 @@ class ClaimsLog(Base):
     id = Column(Integer, primary_key=True)
     orcidid = Column(String(19))
     bibcode = Column(String(19))
-    status = Column(String(255))
+    status = Column(Enum('claimed', 'updated', 'removed', 'unchanged', '#full-import'))
     provenance = Column(String(255))
     created = Column(TIMESTAMP, default=get_date)
     

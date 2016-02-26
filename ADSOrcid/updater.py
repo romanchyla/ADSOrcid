@@ -1,6 +1,6 @@
+
 """
-This library merges stuff that travels in the RabbitMQ (but here
-we just deal with the logic; not with the queue) 
+Library for updating papers (db claims/records). 
 """
 
 import Levenshtein
@@ -10,6 +10,9 @@ import json
 from .models import Records
 from .utils import get_date
 import datetime
+from ADSOrcid.pipeline.ClaimsImporter import ClaimsImporter
+from ADSOrcid.models import ClaimsLog
+from sqlalchemy.sql.expression import and_
 
 
 def record_claims(bibcode, claims):
@@ -140,3 +143,22 @@ def find_orcid_position(authors_list, name_variants):
         return -1
     
     return res[0][1]
+
+
+def reindex_all_claims(orcidid, since=None):
+    """
+    Procedure that will re-discover and re-index all claims
+    that were modified since a given starting point.
+    """
+    
+    last_check = get_date(since or '1974-11-09T22:56:52.518001Z')
+    
+    with app.session_scope() as session:
+        author = matcher.retrieve_orcid(orcidid)
+        
+        for claim in session.query(ClaimsLog).filter(
+                        and_(ClaimsLog.orcidid == orcidid, ClaimsLog.created > last_check)
+                        ).all():
+            print('ok')
+            
+            

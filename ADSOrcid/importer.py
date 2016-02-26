@@ -8,6 +8,12 @@ import datetime
 
 ALLOWED_STATUS = set(['claimed', 'updated', 'removed', 'unchanged', '#full-import'])
 
+
+"""
+Set of utilities for creating claims.
+"""
+
+
 def insert_claims(claims):
     """
     Build a batch of claims and saves them into a database
@@ -72,7 +78,7 @@ def create_claim(bibcode=None,
                      
 
 def import_recs(input_file, default_provenance=None, 
-                default_status='created', collector=None):
+                default_status='claimed', collector=None):
     """
     Imports (creates log records) of claims from
     :param: input_file - String, path to the file with the following 

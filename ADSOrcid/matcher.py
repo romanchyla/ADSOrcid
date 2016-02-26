@@ -6,8 +6,13 @@ import json
 import cachetools
 import time
 
+"""
+Tools for enhancing our knowledge about orcid ids (authors).
+"""
+
 cache = cachetools.TTLCache(maxsize=1024, ttl=3600, timer=time.time, missing=None, getsizeof=None)
 orcid_cache = cachetools.TTLCache(maxsize=1024, ttl=3600, timer=time.time, missing=None, getsizeof=None)
+ads_cache = cachetools.TTLCache(maxsize=1024, ttl=3600, timer=time.time, missing=None, getsizeof=None)
     
 @cachetools.cached(cache)  
 def retrieve_orcid(orcid):
@@ -32,6 +37,15 @@ def retrieve_orcid(orcid):
 def get_public_orcid_profile(orcidid):
     r = requests.get(config.get('API_ORCID_PROFILE_ENDPOINT') % orcidid,
                  headers={'Accept': 'application/json'})
+    if r.status_code != 200:
+        return None
+    else:
+        return r.json()
+
+@cachetools.cached(ads_cache)
+def get_ads_orcid_profile(orcidid):
+    r = requests.get(config.get('API_ORCID_EXPORT_PROFILE') % orcidid,
+                 headers={'Accept': 'application/json', 'Authorization': 'Bearer:%s' % config.get('API_TOKEN')})
     if r.status_code != 200:
         return None
     else:
@@ -174,10 +188,9 @@ def harvest_author_info(orcidid, name=None, facts=None):
     # get ADS data about the user
     # 0000-0003-3052-0819 | {"authorizedUser": true, "currentAffiliation": "Australian Astronomical Observatory", "nameVariations": ["Green, Andrew W.", "Green, Andy", "Green, Andy W."]}
 
-    r = requests.get(config.get('API_ORCID_EXPORT_PROFILE') % orcidid,
-                headers={'Authorization': 'Bearer:%s' % config.get('API_TOKEN')})
-    if r.status_code == 200:
-        _author = r.json()
+    r = get_ads_orcid_profile(orcidid)
+    if r:
+        _author = r
         _info = _author.get('info', {})
         if _info.get('authorizedUser', False):
             author_data['authorized'] = True
