@@ -82,7 +82,7 @@ def update_record(rec, claim):
     assert(isinstance(rec['authors'], list))
     
     fld_name = 'unverified'
-    if 'accnt_id' in claim: # the claim was made by ADS verified user
+    if 'account_id' in claim: # the claim was made by ADS verified user
         fld_name = 'verified'
     
     num_authors = len(rec['authors'])

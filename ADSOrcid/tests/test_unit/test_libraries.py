@@ -93,14 +93,25 @@ class TestMatcherUpdater(test_base.TestUnit):
             content_type='application/json',
             body=open(os.path.join(self.app.config['TEST_UNIT_DIR'], 'stub_data', orcidid + '.orcid.json')).read())
         httpretty.register_uri(
+            httpretty.GET, self.app.config['API_ORCID_EXPORT_PROFILE'] % orcidid,
+            content_type='application/json',
+            body=open(os.path.join(self.app.config['TEST_UNIT_DIR'], 'stub_data', orcidid + '.ads.json')).read())
+        httpretty.register_uri(
             httpretty.GET, self.app.config['API_SOLR_QUERY_ENDPOINT'],
             content_type='application/json',
             body=open(os.path.join(self.app.config['TEST_UNIT_DIR'], 'stub_data', orcidid + '.solr.json')).read())
         
         data = matcher.harvest_author_info(orcidid)
         self.assertDictEqual(data, {'orcid_name': [u'Stern, Daniel'],
-                                    'author': [u'Stern, D', u'Stern, D K', u'Stern, Daniel'],
+                                    'author': [u'Stern, A D',
+                                               u'Stern, Andrew D',
+                                               u'Stern, D', 
+                                               u'Stern, D K', 
+                                               u'Stern, Daniel'
+                                               ],
+                                    'authorized': True,
                                     'author_norm': [u'Stern, D'],
+                                    'current_affiliation': u'ADS',
                                     'name': u'Stern, D K'
                                     })
         
@@ -186,6 +197,33 @@ class TestMatcherUpdater(test_base.TestUnit):
                 self.assertDictContainsSubset({'oldvalue': json.dumps([u'Stern, D', u'Stern, D K', u'Stern, Daniel']),
                                                'newvalue': json.dumps([u'Stern, D', u'Stern, D K', u'Sternx, Daniel'])},
                                               session.query(ChangeLog).filter_by(key='0000-0003-2686-9241:update:author').first().toJSON())
+        
+        with app.session_scope() as session:
+            ainfo = session.query(AuthorInfo).filter_by(orcidid='0000-0003-2686-9241').first()
+            with mock.patch('ADSOrcid.matcher.harvest_author_info', return_value= {
+                                        'name': u'Sternx, D K',
+                                        'authorized': True
+                                        }
+                    ) as context:
+                matcher.cache.clear()
+                matcher.orcid_cache.clear()
+                author = matcher.retrieve_orcid('0000-0003-2686-9241')
+                self.assertDictContainsSubset({'status': None, 
+                                               'name': u'Sternx, D K', 
+                                               'facts': {u'authorized': True, u'name': u'Sternx, D K'}, 
+                                               'orcidid': u'0000-0003-2686-9241', 
+                                               'id': 1, 
+                                               'account_id': 1}, 
+                                              author)
+                self.assertDictContainsSubset({'oldvalue': json.dumps([u'Stern, Daniel']),
+                                               'newvalue': json.dumps([u'Sternx, Daniel'])},
+                                              session.query(ChangeLog).filter_by(key='0000-0003-2686-9241:update:orcid_name').first().toJSON())
+                self.assertDictContainsSubset({'oldvalue': json.dumps(u'Stern, D K'),
+                                               'newvalue': json.dumps(u'Sternx, D K')},
+                                              session.query(ChangeLog).filter_by(key='0000-0003-2686-9241:update:name').first().toJSON())
+                self.assertDictContainsSubset({'oldvalue': json.dumps([u'Stern, D', u'Stern, D K', u'Stern, Daniel']),
+                                               'newvalue': json.dumps([u'Stern, D', u'Stern, D K', u'Sternx, Daniel'])},
+                                              session.query(ChangeLog).filter_by(key='0000-0003-2686-9241:update:author').first().toJSON())
     
 
     def test_update_record(self):
@@ -219,7 +257,7 @@ class TestMatcherUpdater(test_base.TestUnit):
           {
            'bibcode': '2015ApJ...799..123B', 
            'orcidid': '0000-0003-2686-9241',
-           'accnt_id': '10',
+           'account_id': '1',
            'orcid_name': [u'Stern, Daniel'],
            'author': [u'Stern, D', u'Stern, D K', u'Stern, Daniel'],
            'author_norm': [u'Stern, D'],
@@ -234,7 +272,7 @@ class TestMatcherUpdater(test_base.TestUnit):
           {
            'bibcode': '2015ApJ...799..123B', 
            'orcidid': '0000-0003-2686-9241',
-           'accnt_id': '10',
+           'account_id': '1',
            'orcid_name': [u'Stern, Daniel'],
            'author': [u'Stern, D', u'Stern, D K', u'Stern, Daniel'],
            'author_norm': [u'Stern, D'],
