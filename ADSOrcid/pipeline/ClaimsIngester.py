@@ -32,7 +32,10 @@ class ClaimsIngester(GenericWorker.RabbitMQWorker):
         
         if not msg.get('orcidid'):
             raise Exception('Unusable payload, missing orcidid {0}'.format(msg))
-        
+
+        if msg.get('status', 'created') in ('unchanged', '#full-import'):
+            return
+                        
         author = matcher.retrieve_orcid(msg['orcidid'])
         
         if not author:

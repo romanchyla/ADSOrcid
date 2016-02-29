@@ -18,7 +18,9 @@ ads_cache = cachetools.TTLCache(maxsize=1024, ttl=3600, timer=time.time, missing
 def retrieve_orcid(orcid):
     """
     Finds (or creates and returns) model of ORCID
-    from the dbase
+    from the dbase. It will automatically update our
+    knowledge about the author every time it gets
+    called.
     
     :param orcid - String (orcid id)
     :return - OrcidModel datastructure
@@ -167,7 +169,7 @@ def harvest_author_info(orcidid, name=None, facts=None):
                  'endpoint': config.get('API_SOLR_QUERY_ENDPOINT'),
                  'query' : 'orcid_pub:%s' % cleanup_orcidid(orcidid),
                 },
-                headers={'Authorization': 'Bearer:%s' % config.get('API_TOKEN')})
+                headers={'Authorization': 'Bearer %s' % config.get('API_TOKEN')})
     
     if r.status_code != 200:
         app.logger.error('Failed getting data from our own API! (err: %s)' % r.status_code)

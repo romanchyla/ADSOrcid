@@ -21,7 +21,11 @@ class TestPipeline(test_base.TestFunctional):
     The interaction between the pipeline workers.
     
     Make sure you have the correct values set in the local_config.py
-    These tests will use that config.
+    These tests will use that config! At mininum:
+    
+    SQLALCHEMY_URL = 'sqlite:////tmp/test.db'
+    API_TOKEN = '.......'
+
     """
 
     def test_forwarding(self):
@@ -141,7 +145,7 @@ class TestPipeline(test_base.TestFunctional):
         
         
         test_worker = GenericWorker.RabbitMQWorker(params={
-                            'publish': 'ads.orcid.fresh-claims',
+                            'publish': 'ads.orcid.claims',
                             'exchange': 'ads-orcid-test'
                         })
         test_worker.connect(self.TM.rabbitmq_url)

@@ -16,6 +16,7 @@ Vagrant.configure("2") do |config|
         d.build_dir = "manifests/development/app"
         d.has_ssh = true
         d.name = "app"
+        d.create_args = ["--add-host", "dockerhost:" + `ip route | awk '/docker0/ { print $NF }'`.strip]
       end
     end
     
@@ -27,6 +28,7 @@ Vagrant.configure("2") do |config|
         d.name = "db"
         d.ports = ["37017:27017", "6432:5432"]
         #d.volumes = ["data/postgres:/var/lib/postgresql/data", "data/mongodb:/data/db"]
+        d.create_args = ["--add-host", "dockerhost:" + `ip route | awk '/docker0/ { print $NF }'`.strip]
       end
     end
     
@@ -37,6 +39,7 @@ Vagrant.configure("2") do |config|
         d.has_ssh = true
         d.name = "rabbitmq"
         d.ports = ["6672:5672", "25672:15672"]
+        d.create_args = ["--add-host", "dockerhost:" + `ip route | awk '/docker0/ { print $NF }'`.strip]
       end
     end
     
@@ -46,6 +49,7 @@ Vagrant.configure("2") do |config|
         d.build_dir = "manifests/development/import-pipeline"
         d.has_ssh = true
         d.name = "imp"
+        d.create_args = ["--add-host", "dockerhost:" + `ip route | awk '/docker0/ { print $NF }'`.strip]
       end
     end
   

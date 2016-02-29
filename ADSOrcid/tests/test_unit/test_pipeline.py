@@ -36,31 +36,6 @@ class TestWorkers(test_base.TestUnit):
         app.close_app()
         
     
-    @patch('ADSOrcid.pipeline.ClaimsImporter.ClaimsImporter.publish', return_value=None)
-    def test_import_worker(self, *args):
-        """
-        Receives claims from ADSWS; creates a record in the database
-        and publishes into a queue
-        """
-        
-        worker = workers.ClaimsImporter.ClaimsImporter()
-        worker.process_payload([{
-                'orcidid': '0000-0003-2686-9241',
-                'bibcode': 'foo',
-                'status': 'claimed'
-        }, {
-                'orcidid': '0000-0003-2686-9242',
-                'bibcode': 'foo',
-                'status': 'claimed'
-        }])
-        self.assertDictContainsSubset(
-            {'status': 'claimed', 'bibcode': 'foo', 'provenance': 'ClaimsImporter', 'orcidid': '0000-0003-2686-9241', 'id': 1},
-             worker.publish.call_args_list[0][0][0])
-        self.assertDictContainsSubset(
-            {'status': 'claimed', 'bibcode': 'foo', 'provenance': 'ClaimsImporter', 'orcidid': '0000-0003-2686-9242', 'id': 2},
-             worker.publish.call_args_list[1][0][0])
-
-    
     
     @patch('ADSOrcid.matcher.retrieve_orcid', return_value={'status': None, 
                                            'name': u'Stern, D K', 
@@ -80,14 +55,14 @@ class TestWorkers(test_base.TestUnit):
         worker = workers.ClaimsIngester.ClaimsIngester()
         worker.process_payload({'status': 'claimed', 
                                 'bibcode': 'foo', 
-                                'provenance': 'ClaimsImporter', 
+                                'provenance': 'OrcidImporter', 
                                 'orcidid': '0000-0003-2686-9241', 
                                 'id': 1})
         
         self.assertDictContainsSubset(
                                 {'status': 'claimed', 
                                 'bibcode': 'foo', 
-                                'provenance': 'ClaimsImporter', 
+                                'provenance': 'OrcidImporter', 
                                 'orcidid': '0000-0003-2686-9241', 
                                 'id': 1,
                                 'name': 'Stern, D K',
@@ -119,7 +94,7 @@ class TestWorkers(test_base.TestUnit):
         worker = workers.ClaimsIngester.ClaimsIngester()
         worker.process_payload({'status': 'claimed', 
                                 'bibcode': 'foo', 
-                                'provenance': 'ClaimsImporter', 
+                                'provenance': 'OrcidImporter', 
                                 'orcidid': '0000-0003-2686-9241', 
                                 'id': 1})
         

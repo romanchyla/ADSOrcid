@@ -10,7 +10,6 @@ import json
 from .models import Records
 from .utils import get_date
 import datetime
-from ADSOrcid.pipeline.ClaimsImporter import ClaimsImporter
 from ADSOrcid.models import ClaimsLog
 from sqlalchemy.sql.expression import and_
 
@@ -85,7 +84,7 @@ def update_record(rec, claim):
     assert(isinstance(rec['authors'], list))
     
     fld_name = 'unverified'
-    if 'account_id' in claim: # the claim was made by ADS verified user
+    if 'account_id' in claim and claim['account_id']: # the claim was made by ADS verified user
         fld_name = 'verified'
     
     num_authors = len(rec['authors'])
@@ -145,6 +144,19 @@ def find_orcid_position(authors_list, name_variants):
     return res[0][1]
 
 
+def _remove_orcid(rec, orcidid):
+    """Finds and removes the orcidid from the list of claims.
+    
+    :return: True/False if the rec was modified
+    """
+    modified = False
+    claims = rec.get('claims', {})
+    for data in claims.values():
+        if orcidid in data:
+            data[data.index(orcidid)] = '-'
+            modified = True
+    return modified
+
 def reindex_all_claims(orcidid, since=None):
     """
     Procedure that will re-discover and re-index all claims
@@ -155,10 +167,44 @@ def reindex_all_claims(orcidid, since=None):
     
     with app.session_scope() as session:
         author = matcher.retrieve_orcid(orcidid)
-        
+        claimed = set()
+        removed = set()
         for claim in session.query(ClaimsLog).filter(
                         and_(ClaimsLog.orcidid == orcidid, ClaimsLog.created > last_check)
                         ).all():
-            print('ok')
+            if claim.status == 'claimed' or claim.status == 'updated':
+                claimed.add(claim.bibcode)
+            elif claim.status == 'removed':
+                removed.add(claim.bibcode)
+            
+        with app.session_scope() as session:    
+            for bibcode in removed:
+                r = session.query(Records).filter_by(bibcode=bibcode).first()
+                if r is None:
+                    continue
+                rec = r.toJSON()
+                if _remove_orcid(rec, orcidid):
+                    r.claims = json.dumps(rec.claims)
+                    r.processed = get_date()
+                    session.merge(r)
+            session.commit()
+        
+        with app.session_scope() as claimed:    
+            for bibcode in claimed:
+                r = session.query(Records).filter_by(bibcode=bibcode).first()
+                if r is None:
+                    continue
+                rec = r.toJSON()
+                modified = _remove_orcid(rec, orcidid) # always remove orcid, if any
+                claim = {'bibcode': bibcode, 'orcidid': orcidid}
+                claim.update(author.facts)
+                idx = update_record(rec, claim)
+                if idx > -1 or modified:
+                    r.claims = json.dumps(rec.claims)
+                    r.processed = get_date()
+                    session.merge(r)
+                    
+            session.commit()
+                
             
             
