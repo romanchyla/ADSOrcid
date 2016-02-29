@@ -12,7 +12,8 @@ from .utils import get_date
 import datetime
 from ADSOrcid.models import ClaimsLog
 from sqlalchemy.sql.expression import and_
-
+from types import NoneType
+import requests
 
 def record_claims(bibcode, claims):
     """
@@ -164,6 +165,7 @@ def reindex_all_claims(orcidid, since=None):
     """
     
     last_check = get_date(since or '1974-11-09T22:56:52.518001Z')
+    recs_modified = set()
     
     with app.session_scope() as session:
         author = matcher.retrieve_orcid(orcidid)
@@ -186,10 +188,9 @@ def reindex_all_claims(orcidid, since=None):
                 if _remove_orcid(rec, orcidid):
                     r.claims = json.dumps(rec.claims)
                     r.processed = get_date()
+                    recs_modified.add(bibcode)
                     session.merge(r)
-            session.commit()
         
-        with app.session_scope() as claimed:    
             for bibcode in claimed:
                 r = session.query(Records).filter_by(bibcode=bibcode).first()
                 if r is None:
@@ -202,9 +203,48 @@ def reindex_all_claims(orcidid, since=None):
                 if idx > -1 or modified:
                     r.claims = json.dumps(rec.claims)
                     r.processed = get_date()
+                    recs_modified.add(bibcode)
                     session.merge(r)
                     
             session.commit()
-                
-            
+        
+        return list(recs_modified)
+
+
+def get_all_touched_profiles(since='1974-11-09T22:56:52.518001Z'):
+    """Queries the orcid-service for all new/updated
+    orcid profiles"""
+    
+    orcid_ids = set()
+    latest_point = get_date(since) # RFC 3339 format
+        
+    while True:
+        # increase the timestamp by one microsec and get new updates
+        latest_point = latest_point + datetime.timedelta(microseconds=1)
+        r = requests.get(app.config.get('API_ORCID_UPDATES_ENDPOINT') % latest_point.isoformat(),
+                    params={'fields': ['orcid_id', 'updated', 'created']},
+                    headers = {'Authorization': 'Bearer {0}'.format(app.config.get('API_TOKEN'))})
+    
+        if r.status_code != 200:
+            raise Exception(r.text)
+        
+        if r.text.strip() == "":
+            break
+        
+        # we received the data, immediately update the databaes (so that other processes don't 
+        # ask for the same starting date)
+        data = r.json()
+        
+        if len(data) == 0:
+            break
+        
+        # data should be ordered by date update (but to be sure, let's check it); we'll save it
+        # as latest 'check point'
+        dates = [get_date(x['updated']) for x in data]
+        dates = sorted(dates, reverse=True)
+        latest_point = dates[0]
+        for rec in data:
+            orcid_ids.add(rec['orcid_id'])
+        
+    return list(orcid_ids)
             

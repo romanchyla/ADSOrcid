@@ -68,7 +68,7 @@ class OrcidImporter(GenericWorker.RabbitMQWorker):
                 # increase the timestamp by one microsec and get new updates
                 latest_point = latest_point + datetime.timedelta(microseconds=1)
                 r = requests.get(app.config.get('API_ORCID_UPDATES_ENDPOINT') % latest_point.isoformat(),
-                            params={'fields': 'orcid_id, updated,created'},
+                            params={'fields': ['orcid_id', 'updated', 'created']},
                             headers = {'Authorization': 'Bearer {0}'.format(app.config.get('API_TOKEN'))})
                 
                 if r.status_code != 200:
