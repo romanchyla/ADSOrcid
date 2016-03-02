@@ -1,19 +1,26 @@
 from app import session_scope, config
 from . import app
-from .models import AuthorInfo
+from .models import AuthorInfo, ChangeLog
 import requests
 import json
 import cachetools
 import time
 
+"""
+Tools for enhancing our knowledge about orcid ids (authors).
+"""
+
 cache = cachetools.TTLCache(maxsize=1024, ttl=3600, timer=time.time, missing=None, getsizeof=None)
 orcid_cache = cachetools.TTLCache(maxsize=1024, ttl=3600, timer=time.time, missing=None, getsizeof=None)
+ads_cache = cachetools.TTLCache(maxsize=1024, ttl=3600, timer=time.time, missing=None, getsizeof=None)
     
 @cachetools.cached(cache)  
 def retrieve_orcid(orcid):
     """
     Finds (or creates and returns) model of ORCID
-    from the dbase
+    from the dbase. It will automatically update our
+    knowledge about the author every time it gets
+    called.
     
     :param orcid - String (orcid id)
     :return - OrcidModel datastructure
@@ -21,7 +28,7 @@ def retrieve_orcid(orcid):
     with session_scope() as session:
         u = session.query(AuthorInfo).filter_by(orcidid=orcid).first()
         if u is not None:
-            return u.toJSON()
+            return update_author(u)
         u = create_orcid(orcid)
         session.add(u)
         session.commit()
@@ -36,6 +43,61 @@ def get_public_orcid_profile(orcidid):
         return None
     else:
         return r.json()
+
+@cachetools.cached(ads_cache)
+def get_ads_orcid_profile(orcidid):
+    r = requests.get(config.get('API_ORCID_EXPORT_PROFILE') % orcidid,
+                 headers={'Accept': 'application/json', 'Authorization': 'Bearer:%s' % config.get('API_TOKEN')})
+    if r.status_code != 200:
+        return None
+    else:
+        return r.json()
+
+
+def update_author(author):
+    """Updates existing AuthorInfo records. 
+    
+    It will check for new information. If there is a difference,
+    updates the record and also records the old values.
+    
+    :param: author - AuthorInfo instance
+    
+    :return: AuthorInfo object
+    
+    :sideeffect: Will insert new records (ChangeLog) and also update
+     the author instance
+    """
+    try:
+        new_facts = harvest_author_info(author.orcidid)
+    except:
+        return author.toJSON()
+    
+    info = author.toJSON()
+    with session_scope() as session:
+        old_facts = info['facts']
+        attrs = set(new_facts.keys())
+        attrs = attrs.union(old_facts.keys())
+        is_dirty = False
+        
+        for attname in attrs:
+            if old_facts.get(attname, None) != new_facts.get(attname, None):
+                session.add(ChangeLog(key='{0}:update:{1}'.format(author.orcidid, attname), 
+                           oldvalue=json.dumps(old_facts.get(attname, None)),
+                           newvalue=json.dumps(new_facts.get(attname, None))))
+                is_dirty = True
+        
+        if bool(author.account_id) != bool(new_facts.get('authorized', False)):
+            author.account_id = new_facts.get('authorized', False) and 1 or None 
+        
+        if is_dirty:
+            author.facts = json.dumps(new_facts)
+            author.name = new_facts.get('name', author.name)
+            aid=author.id
+            session.commit()
+            return session.query(AuthorInfo).filter_by(id=aid).first().toJSON()
+        else:
+            return info
+    
    
 def create_orcid(orcid, name=None, facts=None):
     """
@@ -59,7 +121,7 @@ def create_orcid(orcid, name=None, facts=None):
         name = name or profile['name']
         facts = profile
 
-    return AuthorInfo(orcidid=orcid, name=name, facts=json.dumps(facts))
+    return AuthorInfo(orcidid=orcid, name=name, facts=json.dumps(facts), account_id=facts.get('authorized', None))
 
 
 def harvest_author_info(orcidid, name=None, facts=None):
@@ -97,6 +159,7 @@ def harvest_author_info(orcidid, name=None, facts=None):
                 (j['orcid-profile']['orcid-bio']['personal-details']['family-name']['value'],
                  j['orcid-profile']['orcid-bio']['personal-details']['given-names']['value'])]
             author_data['name'] = author_data['orcid_name'][0]
+            
                 
     # search for the orcidid in our database (but only the publisher populated fiels)
     # we can't trust other fiels to bootstrap our database
@@ -106,7 +169,7 @@ def harvest_author_info(orcidid, name=None, facts=None):
                  'endpoint': config.get('API_SOLR_QUERY_ENDPOINT'),
                  'query' : 'orcid_pub:%s' % cleanup_orcidid(orcidid),
                 },
-                headers={'Authorization': 'Bearer:%s' % config.get('API_TOKEN')})
+                headers={'Authorization': 'Bearer %s' % config.get('API_TOKEN')})
     
     if r.status_code != 200:
         app.logger.error('Failed getting data from our own API! (err: %s)' % r.status_code)
@@ -124,6 +187,25 @@ def harvest_author_info(orcidid, name=None, facts=None):
                     master_set[k][n] = 0
                 master_set[k][n] += 1
     
+    # get ADS data about the user
+    # 0000-0003-3052-0819 | {"authorizedUser": true, "currentAffiliation": "Australian Astronomical Observatory", "nameVariations": ["Green, Andrew W.", "Green, Andy", "Green, Andy W."]}
+
+    r = get_ads_orcid_profile(orcidid)
+    if r:
+        _author = r
+        _info = _author.get('info', {})
+        if _info.get('authorizedUser', False):
+            author_data['authorized'] = True
+        if _info.get('currentAffiliation', False):
+            author_data['current_affiliation'] = _info['currentAffiliation']
+        _vars = _info.get('nameVariations', None)
+        if _vars:
+            master_set.setdefault('author', {})
+            for x in _vars:
+                x = cleanup_name(x)
+                v = master_set['author'].get(x, 1)
+                master_set['author'][x] = v
+    
     # elect the most frequent name to become the 'author name'
     # TODO: this will choose the normalized names (as that is shorter)
     # maybe we should choose the longest (but it is not too important
@@ -135,6 +217,7 @@ def harvest_author_info(orcidid, name=None, facts=None):
         for name, freq in v.items():
             if freq > mx:
                 author_data['name'] = name
+    
     
     return author_data
     

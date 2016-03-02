@@ -53,7 +53,7 @@ POLL_INTERVAL = 15  # per-worker poll interval (to check health) in seconds.
 EXCHANGE = 'ads-orcid'
 
 WORKERS = {
-    'ClaimsImporter': {
+    'OrcidImporter': {
         'concurrency': 1,
         'subscribe': 'ads.orcid.fresh-claims',
         'publish': 'ads.orcid.claims',
