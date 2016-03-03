@@ -11,9 +11,42 @@ from .models import Records
 from .utils import get_date
 import datetime
 from ADSOrcid.models import ClaimsLog
+from app import config
 from sqlalchemy.sql.expression import and_
-from types import NoneType
 import requests
+import cachetools
+import time
+
+bibcode_cache = cachetools.TTLCache(maxsize=1024, ttl=3600, timer=time.time, missing=None, getsizeof=None)
+
+@cachetools.cached(bibcode_cache) 
+def retrieve_metadata(bibcode):
+    """
+    From the API retrieve the set of metadata we want to know about the record.
+    """
+    r = requests.get(config.get('API_SOLR_QUERY_ENDPOINT'),
+         params={'q': 'bibcode:"{0}"'.format(bibcode),
+                 'fl': 'authors,bibcode'},
+         headers={'Accept': 'application/json'})
+    if r.status_code != 200:
+        return None
+    else:
+        return r.json()
+
+
+def retrieve_record(bibcode):
+    """
+    Gets a record from the database (creates one if necessary)
+    """
+    with app.session_scope() as session:
+        r = session.query(Records).filter_by(bibcode=bibcode).first()
+        if r is None:
+            r = Records(bibcode=bibcode)
+            session.add(r)
+        out = r.toJSON()
+        session.commit()
+        return out
+
 
 def record_claims(bibcode, claims):
     """

@@ -155,10 +155,12 @@ def harvest_author_info(orcidid, name=None, facts=None):
             'family-name' in j['orcid-profile']['orcid-bio']['personal-details'] and \
             'given-names' in j['orcid-profile']['orcid-bio']['personal-details']:
             
-            author_data['orcid_name'] = ['%s, %s' % \
-                (j['orcid-profile']['orcid-bio']['personal-details']['family-name']['value'],
-                 j['orcid-profile']['orcid-bio']['personal-details']['given-names']['value'])]
-            author_data['name'] = author_data['orcid_name'][0]
+            fname = j['orcid-profile']['orcid-bio']['personal-details'].get('family-name', {}).get('value', None)
+            gname = j['orcid-profile']['orcid-bio']['personal-details'].get('given-names', {}).get('value', None)
+            
+            if fname and gname:
+                author_data['orcid_name'] = ['%s, %s' % (fname, gname)]
+                author_data['name'] = author_data['orcid_name'][0]
             
                 
     # search for the orcidid in our database (but only the publisher populated fiels)
@@ -193,7 +195,7 @@ def harvest_author_info(orcidid, name=None, facts=None):
     r = get_ads_orcid_profile(orcidid)
     if r:
         _author = r
-        _info = _author.get('info', {})
+        _info = _author.get('info', {}) or {}
         if _info.get('authorizedUser', False):
             author_data['authorized'] = True
         if _info.get('currentAffiliation', False):

@@ -148,7 +148,7 @@ class OrcidImporter(GenericWorker.RabbitMQWorker):
             try:
                 works = profile['orcid-profile']['orcid-activities']['orcid-works']['orcid-work']
             except KeyError, e:
-                self.logger.error('Error processing a profile: '
+                self.logger.warning('Nothing to do for: '
                     '{0} ({1})'.format(orcidid,
                                        traceback.format_exc()))
                 return

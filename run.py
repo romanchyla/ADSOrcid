@@ -16,11 +16,12 @@ import time
 import pika
 import argparse
 import json
+import traceback
 from ADSOrcid import app, importer, updater
 from ADSOrcid.pipeline import GenericWorker
 from ADSOrcid.pipeline import pstart
 from ADSOrcid.utils import setup_logging, get_date
-from ADSOrcid.models import ClaimsLog
+from ADSOrcid.models import ClaimsLog, KeyValue
 
 logger = setup_logging(__file__, __name__)
 RabbitMQWorker = GenericWorker.RabbitMQWorker
@@ -85,7 +86,12 @@ def reindex_claims(since=None, **kwargs):
     :return: no return
     """
     if not since or isinstance(since, basestring) and since.strip() == "":
-        since = '1974-11-09T22:56:52.518001Z' 
+        with app.session_scope() as session:
+            kv = session.query(KeyValue).filter_by(key='last.reindex').first()
+            if kv is not None:
+                since = kv.value
+            else:
+                since = '1974-11-09T22:56:52.518001Z' 
     
     from_date = get_date(since)
     orcidids = set()
@@ -97,12 +103,17 @@ def reindex_claims(since=None, **kwargs):
         for claim in session.query(ClaimsLog.orcidid.distinct().label('orcidid')).all():
             orcidid = claim.orcidid
             if orcidid and orcidid.strip() != "":
-                changed = updater.reindex_all_claims(orcidid, since=from_date.isoformat())
-                if len(changed):
-                    orcidids.add(orcidid)
+                try:
+                    changed = updater.reindex_all_claims(orcidid, since=from_date.isoformat())
+                    if len(changed):
+                        orcidids.add(orcidid)
+                except:
+                    traceback.print_exc()
+                    continue
     
     # then get all new/old orcidids from orcid-service
     orcidids = orcidids.union(updater.get_all_touched_profiles(from_date.isoformat()))
+    from_date = get_date()
     
     # trigger re-indexing
     worker = RabbitMQWorker(params={
@@ -112,6 +123,15 @@ def reindex_claims(since=None, **kwargs):
     worker.connect(app.config.get('RABBITMQ_URL'))  
     for orcidid in orcidids:
         worker.publish({'orcidid': orcidid})
+        
+    with app.session_scope() as session:
+        kv = session.query(KeyValue).filter_by(key='last.reindex').first()
+        if kv is None:
+            kv = KeyValue(key='last.reindex', value=from_date.isoformat())
+            session.add(kv)
+        else:
+            kv.value = from_date.isoformat()
+        session.commit()
 
     logger.info('Done processing {0} orcid ids.'.format(len(orcidids)))
 
@@ -148,8 +168,14 @@ if __name__ == '__main__':
     parser.add_argument('-r',
                         '--reindex_claims',
                         dest='reindex_claims',
+                        action='store_true',
+                        help='Reindex claims')
+    parser.add_argument('-s', 
+                        '--since', 
+                        dest='since_date', 
                         action='store',
-                        help='Reindex claims [since]')
+                        default=None,
+                        help='Starting date for reindexing')
     
     parser.set_defaults(purge_queues=False)
     parser.set_defaults(start_pipeline=False)
@@ -172,7 +198,7 @@ if __name__ == '__main__':
         work_done = True
     
     if args.reindex_claims:
-        reindex_claims(args.reindex_claims)
+        reindex_claims(args.since_date)
         work_done = True
     
     if not work_done:
