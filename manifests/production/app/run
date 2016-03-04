@@ -12,4 +12,4 @@ fi
 cd /app
 
 # start the pipeline
-python run.py -p
+exec python run.py -p
