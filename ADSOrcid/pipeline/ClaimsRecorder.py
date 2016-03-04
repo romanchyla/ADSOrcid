@@ -3,16 +3,17 @@
 from .. import app
 from . import GenericWorker
 from .. import matcher
+from ADSOrcid import updater
 
 
-class ClaimsIngester(GenericWorker.RabbitMQWorker):
+class ClaimsRecorder(GenericWorker.RabbitMQWorker):
     """
-    Processes claims in the system; it enhances the claim
-    with the information about the claimer. (and in the
-    process, updates our knowledge about the ORCIDID)
+    Takes the claim, matches it in the database (will create
+    entry for the record, if not existing yet) and updates 
+    the metadata.
     """
     def __init__(self, params=None):
-        super(ClaimsIngester, self).__init__(params)
+        super(ClaimsRecorder, self).__init__(params)
         app.init_app()
         
     def process_payload(self, msg, **kwargs):
@@ -20,9 +21,8 @@ class ClaimsIngester(GenericWorker.RabbitMQWorker):
         :param msg: contains the message inside the packet
             {'bibcode': '....',
             'orcidid': '.....',
-            'provenance': 'string (optional)',
-            'status': 'claimed|updated|deleted (optional)',
-            'date': 'ISO8801 formatted date (optional)'
+            'name': 'author name',
+            'facts': 'author name variants',
             }
         :return: no return
         """
@@ -33,25 +33,5 @@ class ClaimsIngester(GenericWorker.RabbitMQWorker):
         if not msg.get('orcidid'):
             raise Exception('Unusable payload, missing orcidid {0}'.format(msg))
 
-        if msg.get('status', 'created') in ('unchanged', '#full-import'):
-            return
-                        
-        author = matcher.retrieve_orcid(msg['orcidid'])
+        record = updater.retrieve_metadata(msg['bibcode'])
         
-        if not author:
-            raise Exception('Unable to retrieve info for {0}'.format(msg['orcidid']))
-        
-        msg['name'] = author['name']
-        if author.get('facts', None):
-            for k, v in author['facts'].iteritems():
-                msg[k] = v
-                
-        msg['author_status'] = author['status']
-        msg['account_id'] = author['account_id']
-        msg['author_updated'] = author['updated']
-        msg['author_id'] = author['id']
-        
-        if msg['author_status'] in ('blacklisted', 'postponed'):
-            return
-        
-        self.publish(msg)
