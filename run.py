@@ -21,7 +21,7 @@ from ADSOrcid import app, importer, updater
 from ADSOrcid.pipeline import GenericWorker
 from ADSOrcid.pipeline import pstart
 from ADSOrcid.utils import setup_logging, get_date
-from ADSOrcid.models import ClaimsLog, KeyValue
+from ADSOrcid.models import ClaimsLog, KeyValue, Records
 
 logger = setup_logging(__file__, __name__)
 RabbitMQWorker = GenericWorker.RabbitMQWorker
@@ -38,12 +38,12 @@ def purge_queues(queues):
     publish_worker.connect(app.config.get('RABBITMQ_URL'))
 
     for worker, wconfig in app.config.get('WORKERS').iteritems():
-            for x in ('publish', 'subscribe'):
-                if x in wconfig and wconfig[x]:
-                    try:
-                        publish_worker.channel.queue_delete(queue=wconfig[x])
-                    except pika.exceptions.ChannelClosed, e:
-                        pass
+        for x in ('publish', 'subscribe'):
+            if x in wconfig and wconfig[x]:
+                try:
+                    publish_worker.channel.queue_delete(queue=wconfig[x])
+                except pika.exceptions.ChannelClosed, e:
+                    pass
 
 
 def run_import(claims_file, queue='ads.orcid.claims', **kwargs):
@@ -135,6 +135,60 @@ def reindex_claims(since=None, **kwargs):
 
     logger.info('Done processing {0} orcid ids.'.format(len(orcidids)))
 
+
+def repush_claims(since=None, **kwargs):
+    """
+    Re-pushes all recs that were added since date 'X'
+    to the output (i.e. forwards them onto the Solr queue)
+    
+    :param: since - RFC889 formatted string
+    :type: str
+    
+    :return: no return
+    """
+    if not since or isinstance(since, basestring) and since.strip() == "":
+        with app.session_scope() as session:
+            kv = session.query(KeyValue).filter_by(key='last.repush').first()
+            if kv is not None:
+                since = kv.value
+            else:
+                since = '1974-11-09T22:56:52.518001Z' 
+    
+    from_date = get_date(since)
+    orcidids = set()
+    
+    logger.info('Re-pushing records since: {0}'.format(from_date.isoformat()))
+    
+    worker = RabbitMQWorker(params={
+        'publish': 'ads.orcid.output',
+        'exchange': app.config.get('EXCHANGE', 'ads-orcid')
+    })
+    worker.connect(app.config.get('RABBITMQ_URL'))
+    
+    num_bibcodes = 0
+    with app.session_scope() as session:
+        for rec in session.query(Records) \
+            .filter(Records.updated >= from_date) \
+            .order_by(Records.updated.asc()) \
+            .all():
+            
+            data = rec.toJSON()
+            worker.publish({'bibcode': data['bibcode'], 'authors': data['authors'], 'claims': data['claims']})
+            num_bibcodes += 1
+    
+    with app.session_scope() as session:
+        kv = session.query(KeyValue).filter_by(key='last.repush').first()
+        if kv is None:
+            kv = KeyValue(key='last.repush', value=get_date())
+            session.add(kv)
+        else:
+            kv.value = get_date()
+        session.commit()
+        
+    logger.info('Done processing {0} orcid ids.'.format(num_bibcodes))
+
+
+
 def start_pipeline():
     """Starts the workers and let them do their job"""
     pstart.start_pipeline({}, app)
@@ -170,6 +224,13 @@ if __name__ == '__main__':
                         dest='reindex_claims',
                         action='store_true',
                         help='Reindex claims')
+    
+    parser.add_argument('-u',
+                        '--repush_claims',
+                        dest='repush_claims',
+                        action='store_true',
+                        help='Re-push claims')
+    
     parser.add_argument('-s', 
                         '--since', 
                         dest='since_date', 
@@ -199,6 +260,10 @@ if __name__ == '__main__':
     
     if args.reindex_claims:
         reindex_claims(args.since_date)
+        work_done = True
+    
+    if args.repush_claims:
+        repush_claims(args.since_date)
         work_done = True
     
     if not work_done:

@@ -1,2 +1,2 @@
-from . import ClaimsIngester, ErrorHandler, MongoUpdater, OutputHandler, \
-  OrcidImporter
+from . import ClaimsIngester, ErrorHandler, OutputHandler, \
+  OrcidImporter, ClaimsRecorder

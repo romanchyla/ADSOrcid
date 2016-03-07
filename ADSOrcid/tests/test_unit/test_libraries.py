@@ -274,9 +274,10 @@ class TestMatcherUpdater(test_base.TestUnit):
               "Mori, Kaya",
               "Stern, Daniel",
               "Zhang, William W."
-            ]
+            ],
+            'claims': {}
         }
-        updater.update_record(
+        r = updater.update_record(
           doc,
           {
            'bibcode': '2015ApJ...799..123B', 
@@ -288,7 +289,8 @@ class TestMatcherUpdater(test_base.TestUnit):
            'name': u'Stern, D K' 
           }                          
         )
-        self.assertEqual(doc['verified'], 
+        self.assertEqual(r, ('verified', 12))
+        self.assertEqual(doc['claims']['verified'], 
             ['-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '0000-0003-2686-9241', '-'])
         
         updater.update_record(
@@ -304,7 +306,7 @@ class TestMatcherUpdater(test_base.TestUnit):
            'status': 'removed'
           }                          
         )
-        self.assertEqual(doc['verified'], 
+        self.assertEqual(doc['claims']['verified'], 
             ['-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-'])
         
         
