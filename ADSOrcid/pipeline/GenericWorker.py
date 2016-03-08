@@ -208,8 +208,15 @@ class RabbitMQWorker(object):
         except Exception, e:
             self.results = 'Offloading to ErrorWorker due to exception:' \
                            ' {0}'.format(e.message)
-
-            self.logger.warning('Offloading to ErrorWorker due to exception: '
+            
+            if isinstance(message, dict):
+                self.logger.warning('Offloading to ErrorWorker due to exception (bibcode={0}, orcidid={1})'
+                                '{2} ({3})'.format(message.get('bibcode', '-'),
+                                                   message.get('orcidid', '-'),
+                                                   e.message,
+                                                   traceback.format_exc()))
+            else:
+                self.logger.warning('Offloading to ErrorWorker due to exception: '
                                 '{0} ({1})'.format(e.message,
                                                    traceback.format_exc()))
 

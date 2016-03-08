@@ -17,6 +17,7 @@ import pika
 import argparse
 import json
 import traceback
+
 from ADSOrcid import app, importer, updater
 from ADSOrcid.pipeline import GenericWorker
 from ADSOrcid.pipeline import pstart
@@ -108,6 +109,7 @@ def reindex_claims(since=None, **kwargs):
                     if len(changed):
                         orcidids.add(orcidid)
                 except:
+                    print 'Error processing: {0}'.format(orcidid)
                     traceback.print_exc()
                     continue
     
@@ -122,7 +124,12 @@ def reindex_claims(since=None, **kwargs):
     })
     worker.connect(app.config.get('RABBITMQ_URL'))  
     for orcidid in orcidids:
-        worker.publish({'orcidid': orcidid})
+        try:
+            worker.publish({'orcidid': orcidid})
+        except: # potential backpressure (we are too fast)
+            time.sleep(2)
+            print 'Conn problem, retrying...', orcidid
+            worker.publish({'orcidid': orcidid})
         
     with app.session_scope() as session:
         kv = session.query(KeyValue).filter_by(key='last.reindex').first()
@@ -173,7 +180,12 @@ def repush_claims(since=None, **kwargs):
             .all():
             
             data = rec.toJSON()
-            worker.publish({'bibcode': data['bibcode'], 'authors': data['authors'], 'claims': data['claims']})
+            try:
+                worker.publish({'bibcode': data['bibcode'], 'authors': data['authors'], 'claims': data['claims']})
+            except: # potential backpressure (we are too fast)
+                time.sleep(2)
+                print 'Conn problem, retrying ', data['bibcode']
+                worker.publish({'bibcode': data['bibcode'], 'authors': data['authors'], 'claims': data['claims']})
             num_bibcodes += 1
     
     with app.session_scope() as session:

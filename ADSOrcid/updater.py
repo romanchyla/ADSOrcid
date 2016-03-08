@@ -152,11 +152,19 @@ def update_record(rec, claim):
     
     num_authors = len(authors)
     
-    if fld_name not in rec or rec[fld_name] is None:
+    if fld_name not in claims or claims[fld_name] is None:
         claims[fld_name] = ['-'] * num_authors
-    elif len(rec[fld_name]) < num_authors: # check the lenght is correct
+    elif len(claims[fld_name]) < num_authors: # check the lenght is correct
         claims[fld_name] += ['-'] * (len(claims[fld_name]) - num_authors)
-    
+
+    # always remove the orcidid
+    modified = False    
+    orcidid = claim['orcidid']
+    for v in claims.values():
+        while orcidid in v:
+            v[v.index(orcidid)] = '-'
+            modified = True
+            
     # search using descending priority
     for fx in ('author', 'orcid_name', 'author_norm'):
         if fx in claim and claim[fx]:
@@ -165,15 +173,11 @@ def update_record(rec, claim):
             
             idx = find_orcid_position(rec['authors'], claim[fx])
             if idx > -1:
-                orcidid = claim['orcidid']
-                # remove the orcidid from all other claims
-                for v in claims.values():
-                    while orcidid in v:
-                        v[v.index(orcidid)] = '-'
-
                 claims[fld_name][idx] = claim.get('status', 'created') == 'removed' and '-' or orcidid
                 return (fld_name, idx)
-
+    
+    if modified:
+        return ('removed', -1)
 
 def find_orcid_position(authors_list, name_variants):
     """
