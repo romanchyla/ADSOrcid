@@ -266,10 +266,10 @@ def reindex_all_claims(orcidid, since=None):
                 rec = r.toJSON()
                 modified = _remove_orcid(rec, orcidid) # always remove orcid, if any
                 claim = {'bibcode': bibcode, 'orcidid': orcidid}
-                claim.update(author.facts)
-                idx = update_record(rec, claim)
-                if idx > -1 or modified:
-                    r.claims = json.dumps(rec.claims)
+                claim.update(author.get('facts', {}))
+                _claims = update_record(rec, claim)
+                if _claims or modified:
+                    r.claims = json.dumps(rec.get('claims', {}))
                     r.processed = get_date()
                     recs_modified.add(bibcode)
                     session.merge(r)
