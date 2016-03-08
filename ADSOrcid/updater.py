@@ -26,12 +26,16 @@ def retrieve_metadata(bibcode):
     """
     r = requests.get(config.get('API_SOLR_QUERY_ENDPOINT'),
          params={'q': 'bibcode:"{0}"'.format(bibcode),
-                 'fl': 'authors,bibcode'},
-         headers={'Accept': 'application/json'})
+                 'fl': 'author,bibcode'},
+         headers={'Accept': 'application/json', 'Authorization': 'Bearer:%s' % config.get('API_TOKEN')})
     if r.status_code != 200:
         return None
     else:
-        return r.json()
+        data = r.json().get('response', {})
+        assert data.get('numFound') == 1
+        docs = data.get('docs', [])
+        return docs[0]
+        
 
 
 def retrieve_record(bibcode):
@@ -44,39 +48,55 @@ def retrieve_record(bibcode):
             r = Records(bibcode=bibcode)
             session.add(r)
         out = r.toJSON()
+        
+        metadata = retrieve_metadata(bibcode)
+        authors = metadata.get('author', [])
+        
+        if out.get('authors') != authors:
+            r.authors = json.dumps(authors)
+            out['authors'] = authors
+        
         session.commit()
         return out
 
 
-def record_claims(bibcode, claims):
+def record_claims(bibcode, claims, authors=None):
     """
-    Stores results of the processing in the database (this is purely
-    for book-keeping purposes; and should happen after the data was
-    written to the pipeline. However, in the future we can use these
-    records to build the document for indexing
+    Stores results of the processing in the database.
     
     :param: bibcode
     :type: string
-    :param: claims, as stored in the mongo
+    :param: claims
     :type: dict
     """
+    
+    if not isinstance(claims, basestring):
+        claims = json.dumps(claims)
+    if authors and not isinstance(authors, basestring):
+        authors = json.dumps(authors)
+        
     with app.session_scope() as session:
         if not isinstance(claims, basestring):
             claims = json.dumps(claims)
         r = session.query(Records).filter_by(bibcode=bibcode).first()
         if r is None:
             t = get_date()
-            r = Records(bibcode=bibcode, claims=claims, 
+            r = Records(bibcode=bibcode, 
+                        claims=claims, 
                         created=t,
                         updated=t,
+                        authors=authors
                         )
             session.add(r)
         else:
             r.updated = datetime.datetime.now()
             r.claims = claims
+            if authors:
+                r.authors = authors
             session.merge(r)
         session.commit()
-        
+
+
 def mark_processed(bibcode):
     """Updates the date on which the record has been processed (i.e.
     something has consumed it
@@ -95,13 +115,15 @@ def mark_processed(bibcode):
         session.commit()
         return True        
 
+
 def update_record(rec, claim):
     """
-    update the ADS Document; we'll add ORCID information into it 
+    update the ADS Record; we'll add ORCID information into it 
     (at the correct position)
     
     :param: rec - JSON structure, it contains metadata; we expect
-            it to have 'author' field
+            it to have 'authors' field, and 'claims' field
+            
     :param: claim - JSON structure, it contains claim data, 
             especially:
                 orcidid
@@ -110,23 +132,30 @@ def update_record(rec, claim):
             We use those field to find out which author made the
             claim.
     
-    :return: None - it updates the `rec` directly
+    :return: tuple(clain_category, position) or None if no record
+        was updated
     """
     assert(isinstance(rec, dict))
     assert(isinstance(claim, dict))
     assert('authors' in rec)
+    assert('claims' in rec)
     assert(isinstance(rec['authors'], list))
     
+    claims = rec.get('claims', {})
+    rec['claims'] = claims
+    authors = rec.get('authors', [])
+    
+    # make sure the claims have the necessary structure
     fld_name = 'unverified'
     if 'account_id' in claim and claim['account_id']: # the claim was made by ADS verified user
         fld_name = 'verified'
     
-    num_authors = len(rec['authors'])
+    num_authors = len(authors)
     
     if fld_name not in rec or rec[fld_name] is None:
-        rec[fld_name] = ['-'] * num_authors
+        claims[fld_name] = ['-'] * num_authors
     elif len(rec[fld_name]) < num_authors: # check the lenght is correct
-        rec[fld_name] += ['-'] * (len(rec[fld_name]) - num_authors)
+        claims[fld_name] += ['-'] * (len(claims[fld_name]) - num_authors)
     
     # search using descending priority
     for fx in ('author', 'orcid_name', 'author_norm'):
@@ -136,8 +165,14 @@ def update_record(rec, claim):
             
             idx = find_orcid_position(rec['authors'], claim[fx])
             if idx > -1:
-                rec[fld_name][idx] = claim.get('status', 'created') == 'removed' and '-' or claim['orcidid']
-                return idx
+                orcidid = claim['orcidid']
+                # remove the orcidid from all other claims
+                for v in claims.values():
+                    while orcidid in v:
+                        v[v.index(orcidid)] = '-'
+
+                claims[fld_name][idx] = claim.get('status', 'created') == 'removed' and '-' or orcidid
+                return (fld_name, idx)
 
 
 def find_orcid_position(authors_list, name_variants):

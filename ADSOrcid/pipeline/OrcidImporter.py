@@ -33,20 +33,20 @@ class OrcidImporter(GenericWorker.RabbitMQWorker):
     def start_cronjob(self):
         """Initiates the task in the background"""
         self.keep_running = True
-        def runner(GenericWorker):
+        def runner(worker):
             time.sleep(1)
-            while GenericWorker.keep_running:
+            while worker.keep_running:
                 try:
                     # keep consuming the remote stream until there is 0 recs
-                    while GenericWorker.check_orcid_updates():
+                    while worker.check_orcid_updates():
                         pass
                     time.sleep(app.config.get('ORCID_CHECK_FOR_CHANGES', 60*5) / 2)
                 except Exception, e:
-                    GenericWorker.logger.error('Error fetching profiles: '
+                    worker.logger.error('Error fetching profiles: '
                                 '{0} ({1})'.format(e.message,
                                                    traceback.format_exc()))
         
-        self.checker = threading.Thread(target=runner, kwargs={'GenericWorker': self})
+        self.checker = threading.Thread(target=runner, kwargs={'worker': self})
         self.checker.setDaemon(True)
         self.checker.start()
         
@@ -75,17 +75,17 @@ class OrcidImporter(GenericWorker.RabbitMQWorker):
                     self.logger.error('Failed getting {0}\n{1}'.format(
                                 app.config.get('API_ORCID_UPDATES_ENDPOINT') % kv.value,
                                 r.text))
-                    return
+                    return False
                 
                 if r.text.strip() == "":
-                    return
+                    return False
                 
                 # we received the data, immediately update the databaes (so that other processes don't 
                 # ask for the same starting date)
                 data = r.json()
                 
                 if len(data) == 0:
-                    return
+                    return False
                 
                 # data should be ordered by date update (but to be sure, let's check it); we'll save it
                 # as latest 'check point'
@@ -99,8 +99,8 @@ class OrcidImporter(GenericWorker.RabbitMQWorker):
                 for rec in data:
                     payload = {'orcidid': rec['orcid_id'], 'start': latest_point.isoformat()}
                     # publish data to ourselves
-                    self.publish(payload, topic=self.params.get('publish', 'ads.orcid.orcid_import'))
-                    
+                    self.publish(payload, topic=self.params.get('subscribe', 'ads.orcid.fresh-claims'))
+                return True # continue processing
 
     def _get_ads_orcid_profile(self, orcidid):
         r = requests.get(app.config.get('API_ORCID_EXPORT_PROFILE') % orcidid,
@@ -132,6 +132,9 @@ class OrcidImporter(GenericWorker.RabbitMQWorker):
         assert 'orcidid' in msg
         orcidid = msg['orcidid']
 
+        # make sure the author is there (even if without documents) 
+        author = matcher.retrieve_orcid(orcidid) # @UnusedVariable
+        
         data = self._get_ads_orcid_profile(orcidid)
         if data is None:
             return #TODO: remove all existing claims?
@@ -147,13 +150,8 @@ class OrcidImporter(GenericWorker.RabbitMQWorker):
             # orcid is THE ugliest datastructure of today!
             try:
                 works = profile['orcid-profile']['orcid-activities']['orcid-works']['orcid-work']
-            except KeyError, e:
+            except:
                 self.logger.warning('Nothing to do for: '
-                    '{0} ({1})'.format(orcidid,
-                                       traceback.format_exc()))
-                return
-            except TypeError, e:
-                self.logger.error('Error processing a profile: '
                     '{0} ({1})'.format(orcidid,
                                        traceback.format_exc()))
                 return
@@ -223,12 +221,12 @@ class OrcidImporter(GenericWorker.RabbitMQWorker):
                             provenance = 'orcid-profile'
                         orcid_present[bibc.lower().strip()] = (bibc.strip(), get_date(ts.isoformat()), provenance)
                 except KeyError, e:
-                    self.logger.error('Error processing a record: '
+                    self.logger.warning('Error processing a record: '
                         '{0} ({1})'.format(w,
                                            traceback.format_exc()))
                     continue
                 except TypeError, e:
-                    self.logger.error('Error processing a record: '
+                    self.logger.warning('Error processing a record: '
                         '{0} ({1})'.format(w,
                                            traceback.format_exc()))
                     continue

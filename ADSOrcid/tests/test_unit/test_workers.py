@@ -44,12 +44,16 @@ class TestWorkers(test_base.TestUnit):
         return app
     
     @patch('ADSOrcid.pipeline.OutputHandler.OutputHandler.forward', return_value=None)
+    @patch('ADSOrcid.pipeline.OutputHandler.OutputHandler.init_mongo', return_value=None)
+    @patch('ADSOrcid.pipeline.OutputHandler.OutputHandler._update_mongo', return_value=None)
     def test_output_handler(self, *args):
         """Check it is sending bibcodes"""
         worker = workers.OutputHandler.OutputHandler()
         worker.process_payload({
                                 u'bibcode': u'2014ATel.6427....1V', 
-                                u'unverified': [u'0000-0003-3455-5082', u'-', u'-', u'-', u'0000-0001-6347-0649', u'0000-0002-6082-5384', u'-', u'-', u'-', u'-', u'-', u'0000-0003-4666-119X', u'-', u'-', u'-', u'-', u'-', u'-', u'-', u'-', u'-', u'-', u'-', u'-', u'-', u'-', u'-', u'-', u'-', u'-', u'-', u'-', u'-', u'-', u'-', u'-', u'0000-0002-4590-0040', u'-', u'-', u'-', u'-', u'-', u'-', u'-', u'-', u'-', u'-', u'-', u'-', u'-', u'-', u'-', u'-', u'-']})
+                                u'claims': {u'unverified': [u'0000-0003-3455-5082', u'-', u'-', u'-', u'0000-0001-6347-0649', u'0000-0002-6082-5384', u'-', u'-', u'-', u'-', u'-', u'0000-0003-4666-119X', u'-', u'-', u'-', u'-', u'-', u'-', u'-', u'-', u'-', u'-', u'-', u'-', u'-', u'-', u'-', u'-', u'-', u'-', u'-', u'-', u'-', u'-', u'-', u'-', u'0000-0002-4590-0040', u'-', u'-', u'-', u'-', u'-', u'-', u'-', u'-', u'-', u'-', u'-', u'-', u'-', u'-', u'-', u'-', u'-']},
+                                u'authors': {}
+                               })
         worker.forward.assert_called_with([u'2014ATel.6427....1V'], topic='SolrUpdateRoute')
     
     
@@ -68,11 +72,15 @@ class TestWorkers(test_base.TestUnit):
             httpretty.GET, re.compile(self.app.config['API_ORCID_UPDATES_ENDPOINT'] % '.*'),
             content_type='application/json',
             body=open(os.path.join(self.app.config['TEST_UNIT_DIR'], 'stub_data', orcidid + '.orcid-updates.json')).read())
+        httpretty.register_uri(
+            httpretty.GET, re.compile(self.app.config['API_SOLR_QUERY_ENDPOINT'] + '.*'),
+            content_type='application/json',
+            body=open(os.path.join(self.app.config['TEST_UNIT_DIR'], 'stub_data', orcidid + '.solr.json')).read())
         
         with mock.patch('ADSOrcid.pipeline.OrcidImporter.OrcidImporter.publish') as m:
             worker = OrcidImporter.OrcidImporter()
             worker.check_orcid_updates()
-            worker.publish.assert_called_with({'orcidid': u'0000-0003-3041-2092', 'start': '1974-11-09T22:56:52.518002+00:00'}, topic='ads.orcid.orcid_import')
+            worker.publish.assert_called_with({'orcidid': u'0000-0003-3041-2092', 'start': '1974-11-09T22:56:52.518002+00:00'}, topic='ads.orcid.fresh-claims')
             worker.publish.reset_mock()
             
             worker.process_payload({'orcidid': u'0000-0003-3041-2092', 'start': '1974-11-09T22:56:52.518002+00:00'})

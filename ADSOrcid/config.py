@@ -67,18 +67,12 @@ WORKERS = {
         'error': 'ads.orcid.error',
         'durable': True
     },
-    'MongoUpdater': {
+    'ClaimsRecorder': {
         'concurrency': 1,
         'subscribe': 'ads.orcid.updates',
         'publish': 'ads.orcid.output',
         'error': 'ads.orcid.error',
         'durable': True
-    },   
-    'ErrorHandler': {
-        'subscribe': None,
-        'exchange': None,
-        'publish': None,
-        'durable' : False
     },
     'OutputHandler': {
         'subscribe': 'ads.orcid.output',
@@ -88,5 +82,12 @@ WORKERS = {
             'exchange': 'MergerPipelineExchange',
             'publish': 'SolrUpdateQueue'
         }
-    }
+    },
+    'ErrorHandler': {
+        'subscribe': None,
+        'exchange': None,
+        'publish': None,
+        'durable' : False
+    },
+    
 }
