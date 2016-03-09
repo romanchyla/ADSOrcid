@@ -17,24 +17,38 @@ import cachetools
 import time
 from datetime import timedelta
 
-bibcode_cache = cachetools.TTLCache(maxsize=1024, ttl=3600, timer=time.time, missing=None, getsizeof=None)
+bibcode_cache = cachetools.TTLCache(maxsize=2048, ttl=3600, timer=time.time, missing=None, getsizeof=None)
 
 @cachetools.cached(bibcode_cache) 
-def retrieve_metadata(bibcode):
+def retrieve_metadata(bibcode, search_identifiers=False):
     """
     From the API retrieve the set of metadata we want to know about the record.
     """
     r = requests.get(config.get('API_SOLR_QUERY_ENDPOINT'),
-         params={'q': 'bibcode:"{0}"'.format(bibcode),
-                 'fl': 'author,bibcode'},
+         params={'q': search_identifiers and 'identifier:"{0}"'.format(bibcode) or 'bibcode:"{0}"'.format(bibcode),
+                 'fl': 'author,bibcode,identifier'},
          headers={'Accept': 'application/json', 'Authorization': 'Bearer:%s' % config.get('API_TOKEN')})
     if r.status_code != 200:
-        return None
+        raise Exception(r.text)
     else:
         data = r.json().get('response', {})
-        assert data.get('numFound') <= 1
-        docs = data.get('docs', [])
-        return docs[0]
+        if data.get('numFound') == 1:
+            docs = data.get('docs', [])
+            return docs[0]
+        elif data.get('numFound') == 0:
+            if search_identifiers:
+                raise Exception('Nothing found for identifier:{0}'.format(bibcode))
+            else:
+                return retrieve_metadata(bibcode, search_identifiers=True)
+        else:
+            if data.get('numFound') > 10:
+                raise Exception('Insane num of results for {0} ({1})'.format(bibcode, data.get('numFound')))
+            docs = data.get('docs', [])
+            for d in docs:
+                for ir in d.get('identifier', []):
+                    if ir.lower().strip() == bibcode.lower().strip():
+                        return d
+            raise Exception('More than one document found for {0}'.format(bibcode))
         
 
 

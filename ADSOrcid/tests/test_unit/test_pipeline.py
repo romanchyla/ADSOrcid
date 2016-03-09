@@ -47,6 +47,9 @@ class TestWorkers(test_base.TestUnit):
                                            'updated': '2009-09-03T20:56:35.450689Z'
                                            })
     @patch('ADSOrcid.pipeline.ClaimsIngester.ClaimsIngester.publish', return_value=None)
+    @patch('ADSOrcid.updater.retrieve_metadata', return_value={'bibcode': 'foo', 
+                                           u'author': [u'Stern, D', u'Stern, D K', u'Stern, Daniel'] 
+                                           })
     def test_ingest_worker(self, *args):
         """
         Updates our knowledge about orcid and pushes updated claim to the queue
@@ -84,6 +87,9 @@ class TestWorkers(test_base.TestUnit):
                                            'account_id': None,
                                            'created': '2009-09-03T20:56:35.450686Z',
                                            'updated': '2009-09-03T20:56:35.450689Z'
+                                           })
+    @patch('ADSOrcid.updater.retrieve_metadata', return_value={'bibcode': 'foo', 
+                                           u'author': [u'Stern, D', u'Stern, D K', u'Stern, Daniel'] 
                                            })
     @patch('ADSOrcid.pipeline.ClaimsIngester.ClaimsIngester.publish', return_value=None)
     def test_ingest_worker_blacklisted_author(self, *args):

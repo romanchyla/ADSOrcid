@@ -22,7 +22,7 @@ from ADSOrcid import app, importer, updater
 from ADSOrcid.pipeline import GenericWorker
 from ADSOrcid.pipeline import pstart
 from ADSOrcid.utils import setup_logging, get_date
-from ADSOrcid.models import ClaimsLog, KeyValue, Records
+from ADSOrcid.models import ClaimsLog, KeyValue, Records, AuthorInfo
 
 logger = setup_logging(__file__, __name__)
 RabbitMQWorker = GenericWorker.RabbitMQWorker
@@ -98,17 +98,26 @@ def reindex_claims(since=None, **kwargs):
     from_date = get_date(since)
     orcidids = set()
     
+    # trigger re-indexing
+    worker = RabbitMQWorker(params={
+        'publish': 'ads.orcid.fresh-claims',
+        'exchange': app.config.get('EXCHANGE', 'ads-orcid')
+    })
+    worker.connect(app.config.get('RABBITMQ_URL'))
+    
+    
     logger.info('Loading records since: {0}'.format(from_date.isoformat()))
     
     # first re-check our own database (replay the logs)
     with app.session_scope() as session:
-        for claim in session.query(ClaimsLog.orcidid.distinct().label('orcidid')).all():
-            orcidid = claim.orcidid
+        for author in session.query(AuthorInfo.orcidid.distinct().label('orcidid')).all():
+            orcidid = author.orcidid
             if orcidid and orcidid.strip() != "":
                 try:
                     changed = updater.reindex_all_claims(orcidid, since=from_date.isoformat(), ignore_errors=True)
                     if len(changed):
                         orcidids.add(orcidid)
+                    worker.publish({'orcidid': orcidid, 'force': True})
                 except:
                     print 'Error processing: {0}'.format(orcidid)
                     traceback.print_exc()
@@ -119,15 +128,11 @@ def reindex_claims(since=None, **kwargs):
     print 'Now harvesting orcid profiles...'
     
     # then get all new/old orcidids from orcid-service
-    orcidids = orcidids.union(updater.get_all_touched_profiles(from_date.isoformat()))
+    all_orcids = set(updater.get_all_touched_profiles(from_date.isoformat()))
+    orcidids = all_orcids.difference(orcidids)
     from_date = get_date()
     
-    # trigger re-indexing
-    worker = RabbitMQWorker(params={
-        'publish': 'ads.orcid.fresh-claims',
-        'exchange': app.config.get('EXCHANGE', 'ads-orcid')
-    })
-    worker.connect(app.config.get('RABBITMQ_URL'))  
+      
     for orcidid in orcidids:
         try:
             worker.publish({'orcidid': orcidid, 'force': True})
@@ -145,6 +150,7 @@ def reindex_claims(since=None, **kwargs):
             kv.value = from_date.isoformat()
         session.commit()
 
+    print 'Done'
     logger.info('Done submitting {0} orcid ids.'.format(len(orcidids)))
 
 
