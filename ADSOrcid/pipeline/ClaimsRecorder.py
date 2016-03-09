@@ -40,7 +40,7 @@ class ClaimsRecorder(GenericWorker.RabbitMQWorker):
         if cl:
             updater.record_claims(bibcode, rec['claims'], rec['authors'])
             self.publish({'authors': rec.get('authors'), 'bibcode': rec['bibcode'], 'claims': rec.get('claims')})
-            return True
         else:
-            raise Exception('Unable to process: {0}'.format(claim))
+            self.logger.warning('Claim refused for bibcode:{0} and orcidid:{1}'
+                            .format(claim['bibcode'], claim['orcidid']))
         
