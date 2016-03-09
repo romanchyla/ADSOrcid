@@ -152,7 +152,8 @@ class TestMatcherUpdater(test_base.TestUnit):
                                     'authorized': True,
                                     'author_norm': [u'Stern, D'],
                                     'current_affiliation': u'ADS',
-                                    'name': u'Stern, D K'
+                                    'name': u'Stern, D K',
+                                    'short_name': ['Stern, A', 'Stern, A D', 'Stern, D', 'Stern, D K']
                                     })
         
     
@@ -439,6 +440,15 @@ class TestMatcherUpdater(test_base.TestUnit):
         
         self.assertTrue(len(self.app.session.query(ClaimsLog)
                             .filter_by(bibcode='b123456789123456789').all()) == 3)
+        
+    def test_build_short_forms(self):
+        """Get name variants"""
+        self.assertEquals(matcher._build_short_forms('porceddu,'), [])
+        self.assertEquals(matcher._build_short_forms('porceddu, i'), [])
+        self.assertEquals(matcher._build_short_forms('porceddu, i. enrico pietro'),
+                          ['porceddu, i enrico p', 'porceddu, i e pietro', 'porceddu, i e', 'porceddu, i', 'porceddu, i e p'])
+        self.assertEquals(matcher._build_short_forms('porceddu, ignazio enrico pietro'),
+                          ['porceddu, ignazio enrico p', 'porceddu, i e', 'porceddu, i enrico pietro', 'porceddu, i', 'porceddu, ignazio e pietro', 'porceddu, i e p'])
         
 if __name__ == '__main__':
     unittest.main()

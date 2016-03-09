@@ -5,6 +5,7 @@ import requests
 import json
 import cachetools
 import time
+from copy import deepcopy
 
 """
 Tools for enhancing our knowledge about orcid ids (authors).
@@ -220,10 +221,44 @@ def harvest_author_info(orcidid, name=None, facts=None):
             if freq > mx:
                 author_data['name'] = name
     
+    # automatically add the short names, because they make us find
+    # more matches
+    short_names = set()
+    for x in ('author', 'orcid_name', 'author_norm'):
+        if x in author_data and author_data[x]:
+            for name in author_data[x]:
+                for variant in _build_short_forms(name):
+                    short_names.add(variant)
+    if len(short_names):
+        author_data['short_name'] = sorted(list(short_names))
     
     return author_data
     
 
+def _build_short_forms(orig_name):
+    orig_name = cleanup_name(orig_name)
+    if ',' not in orig_name:
+        return [] # refuse to do anything
+    surname, other_names = orig_name.split(',', 1)
+    ret = set()
+    parts = filter(lambda x: len(x), other_names.split(' '))
+    if len(parts) == 1 and len(parts[0]) == 1:
+        return []
+    for i in range(len(parts)):
+        w_parts = deepcopy(parts)
+        x = w_parts[i]
+        if len(x) > 1:
+            w_parts[i] = x[0]
+            ret.add('{0}, {1}'.format(surname, ' '.join(w_parts)))
+    w_parts = [x[0] for x in parts]
+    while len(w_parts) > 0:
+        ret.add('{0}, {1}'.format(surname, ' '.join(w_parts)))
+        w_parts.pop()
+
+    return list(ret)
+    
+        
+    
 def _extract_names(orcidid, doc):
     o = cleanup_orcidid(orcidid)
     r = {}

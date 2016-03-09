@@ -180,7 +180,7 @@ def update_record(rec, claim):
             modified = True
             
     # search using descending priority
-    for fx in ('author', 'orcid_name', 'author_norm'):
+    for fx in ('author', 'orcid_name', 'author_norm', 'short_name'):
         if fx in claim and claim[fx]:
             
             assert(isinstance(claim[fx], list))
@@ -224,8 +224,16 @@ def find_orcid_position(authors_list, name_variants):
         return -1
     
     if res[0][0] < app.config.get('MIN_LEVENSHTEIN_RATIO', 0.9):
+        # test submatch (0.6470588235294118, 19, 0) (required:0.69) closest: vernetto, s, variant: vernetto, silvia teresa
+        author_name = al[res[0][1]]
+        variant_name = nv[res[0][2]]
+        if author_name in variant_name or variant_name in author_name:
+            app.logger.debug('Using submatch for: %s (required:%s) closest: %s, variant: %s' \
+                        % (res[0], app.config.get('MIN_LEVENSHTEIN_RATIO', 0.9), author_name, variant_name))
+            return res[0][1]
+            
         app.logger.debug('No match found: the closest is: %s (required:%s) closest: %s, variant: %s' \
-                        % (res[0], app.config.get('MIN_LEVENSHTEIN_RATIO', 0.9), al[res[0][1]], nv[res[0][2]]))
+                        % (res[0], app.config.get('MIN_LEVENSHTEIN_RATIO', 0.9), author_name, variant_name))
         return -1
     
     return res[0][1]
