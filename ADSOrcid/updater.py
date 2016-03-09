@@ -15,9 +15,7 @@ from sqlalchemy.sql.expression import and_
 import requests
 import cachetools
 import time
-from dateutil.tz import tzutc
-from datetime import datetime, timedelta
-import traceback
+from datetime import timedelta
 
 bibcode_cache = cachetools.TTLCache(maxsize=1024, ttl=3600, timer=time.time, missing=None, getsizeof=None)
 
@@ -34,7 +32,7 @@ def retrieve_metadata(bibcode):
         return None
     else:
         data = r.json().get('response', {})
-        assert data.get('numFound') == 1
+        assert data.get('numFound') <= 1
         docs = data.get('docs', [])
         return docs[0]
         
@@ -148,9 +146,9 @@ def update_record(rec, claim):
     authors = rec.get('authors', [])
     
     # make sure the claims have the necessary structure
-    fld_name = 'unverified'
+    fld_name = u'unverified'
     if 'account_id' in claim and claim['account_id']: # the claim was made by ADS verified user
-        fld_name = 'verified'
+        fld_name = u'verified'
     
     num_authors = len(authors)
     
@@ -212,8 +210,8 @@ def find_orcid_position(authors_list, name_variants):
         return -1
     
     if res[0][0] < app.config.get('MIN_LEVENSHTEIN_RATIO', 0.9):
-        app.logger.debug('No match found: the closest is: %s (required:%s)' \
-                        % (res[0], app.config.get('MIN_LEVENSHTEIN_RATIO', 0.9)))
+        app.logger.debug('No match found: the closest is: %s (required:%s) closest: %s, variant: %s' \
+                        % (res[0], app.config.get('MIN_LEVENSHTEIN_RATIO', 0.9), al[res[0][1]], nv[res[0][2]]))
         return -1
     
     return res[0][1]

@@ -15,11 +15,13 @@ from datetime import datetime
 
 class UTCDateTime(types.TypeDecorator):
 
-    impl = types.DateTime
+    impl = TIMESTAMP
 
     def process_bind_param(self, value, engine):
-        if value is not None:
-            return value.astimezone(tzutc())
+        if isinstance(value, basestring):
+            return get_date(value).astimezone(tzutc())
+        elif value is not None:
+            return value.astimezone(tzutc()) # will raise Error is not datetime
 
     def process_result_value(self, value, engine):
         if value is not None:

@@ -113,6 +113,10 @@ def reindex_claims(since=None, **kwargs):
                     print 'Error processing: {0}'.format(orcidid)
                     traceback.print_exc()
                     continue
+                if len(orcidids) % 100 == 0:
+                    print 'Done replaying {0} profiles'.format(len(orcidids))
+    
+    print 'Now harvesting orcid profiles...'
     
     # then get all new/old orcidids from orcid-service
     orcidids = orcidids.union(updater.get_all_touched_profiles(from_date.isoformat()))
@@ -141,7 +145,7 @@ def reindex_claims(since=None, **kwargs):
             kv.value = from_date.isoformat()
         session.commit()
 
-    logger.info('Done processing {0} orcid ids.'.format(len(orcidids)))
+    logger.info('Done submitting {0} orcid ids.'.format(len(orcidids)))
 
 
 def repush_claims(since=None, **kwargs):

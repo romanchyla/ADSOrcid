@@ -18,7 +18,9 @@ import math
 import httpretty
 import mock
 from io import BytesIO
- 
+from datetime import datetime
+
+from ADSOrcid.utils import get_date 
 from ADSOrcid.tests import test_base
 from ADSOrcid import matcher, app, updater, importer, utils
 from ADSOrcid.models import AuthorInfo, ClaimsLog, Records, Base, ChangeLog
@@ -100,7 +102,23 @@ class TestMatcherUpdater(test_base.TestUnit):
             with app.session_scope() as session:
                 session.add(ClaimsLog(bibcode='foo'+s, orcidid='bar', status=s))
                 session.commit()
-    
+                
+    def test_dates(self):
+        '''We want to use only UTC dates'''
+        
+        with self.assertRaisesRegexp(Exception, 'ValueError'):
+            with app.session_scope() as session:
+                rec = Records(bibcode='foo', created='2009-09-03T20:56:35.450686Z')
+                session.add(rec)
+                rec.updated = datetime.now()
+                session.commit()
+
+        with app.session_scope() as session:
+            rec = Records(bibcode='foo', created='2009-09-03T20:56:35.450686Z')
+            session.add(rec)
+            rec.updated = get_date()
+            session.commit()
+
     @httpretty.activate
     def test_harvest_author_info(self):
         """
