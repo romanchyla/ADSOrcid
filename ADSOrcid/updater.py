@@ -9,13 +9,15 @@ import app
 import json
 from .models import Records
 from .utils import get_date
-import datetime
 from ADSOrcid.models import ClaimsLog
 from app import config
 from sqlalchemy.sql.expression import and_
 import requests
 import cachetools
 import time
+from dateutil.tz import tzutc
+from datetime import datetime, timedelta
+import traceback
 
 bibcode_cache = cachetools.TTLCache(maxsize=1024, ttl=3600, timer=time.time, missing=None, getsizeof=None)
 
@@ -89,7 +91,7 @@ def record_claims(bibcode, claims, authors=None):
                         )
             session.add(r)
         else:
-            r.updated = datetime.datetime.now()
+            r.updated = get_date()
             r.claims = claims
             if authors:
                 r.authors = authors
@@ -230,9 +232,9 @@ def _remove_orcid(rec, orcidid):
             modified = True
     return modified
 
-def reindex_all_claims(orcidid, since=None):
+def reindex_all_claims(orcidid, since=None, ignore_errors=False):
     """
-    Procedure that will re-discover and re-index all claims
+    Procedure that will re-play all claims
     that were modified since a given starting point.
     """
     
@@ -246,11 +248,11 @@ def reindex_all_claims(orcidid, since=None):
         for claim in session.query(ClaimsLog).filter(
                         and_(ClaimsLog.orcidid == orcidid, ClaimsLog.created > last_check)
                         ).all():
-            if claim.status == 'claimed' or claim.status == 'updated':
+            if claim.status in ('claimed', 'updated', 'forced'):
                 claimed.add(claim.bibcode)
             elif claim.status == 'removed':
                 removed.add(claim.bibcode)
-            
+
         with app.session_scope() as session:    
             for bibcode in removed:
                 r = session.query(Records).filter_by(bibcode=bibcode).first()
@@ -259,24 +261,29 @@ def reindex_all_claims(orcidid, since=None):
                 rec = r.toJSON()
                 if _remove_orcid(rec, orcidid):
                     r.claims = json.dumps(rec.claims)
-                    r.processed = get_date()
+                    r.updated = get_date()
                     recs_modified.add(bibcode)
-                    session.merge(r)
         
             for bibcode in claimed:
                 r = session.query(Records).filter_by(bibcode=bibcode).first()
                 if r is None:
                     continue
                 rec = r.toJSON()
-                modified = _remove_orcid(rec, orcidid) # always remove orcid, if any
+
                 claim = {'bibcode': bibcode, 'orcidid': orcidid}
                 claim.update(author.get('facts', {}))
-                _claims = update_record(rec, claim)
-                if _claims or modified:
-                    r.claims = json.dumps(rec.get('claims', {}))
-                    r.processed = get_date()
-                    recs_modified.add(bibcode)
-                    session.merge(r)
+                try:
+                    _claims = update_record(rec, claim)
+                    if _claims:
+                        r.claims = json.dumps(rec.get('claims', {}))
+                        r.updated = get_date()
+                        recs_modified.add(bibcode)
+                except Exception, e:
+                    if ignore_errors:
+                        app.logger.error('Error processing {0} {1}'.format(bibcode, orcidid))
+                    else:
+                        raise e
+                    
                     
             session.commit()
         
@@ -292,7 +299,7 @@ def get_all_touched_profiles(since='1974-11-09T22:56:52.518001Z'):
         
     while True:
         # increase the timestamp by one microsec and get new updates
-        latest_point = latest_point + datetime.timedelta(microseconds=1)
+        latest_point = latest_point + timedelta(microseconds=1)
         r = requests.get(app.config.get('API_ORCID_UPDATES_ENDPOINT') % latest_point.isoformat(),
                     params={'fields': ['orcid_id', 'updated', 'created']},
                     headers = {'Authorization': 'Bearer {0}'.format(app.config.get('API_TOKEN'))})

@@ -15,7 +15,7 @@ import sys
 import time
 import pika
 import argparse
-import json
+import logging
 import traceback
 
 from ADSOrcid import app, importer, updater
@@ -59,7 +59,7 @@ def run_import(claims_file, queue='ads.orcid.claims', **kwargs):
     
     :return: no return
     """
-
+    logging.captureWarnings(True)
     logger.info('Loading records from: {0}'.format(claims_file))
     c = []
     importer.import_recs(claims_file, collector=c)
@@ -86,6 +86,7 @@ def reindex_claims(since=None, **kwargs):
     
     :return: no return
     """
+    logging.captureWarnings(True)
     if not since or isinstance(since, basestring) and since.strip() == "":
         with app.session_scope() as session:
             kv = session.query(KeyValue).filter_by(key='last.reindex').first()
@@ -105,7 +106,7 @@ def reindex_claims(since=None, **kwargs):
             orcidid = claim.orcidid
             if orcidid and orcidid.strip() != "":
                 try:
-                    changed = updater.reindex_all_claims(orcidid, since=from_date.isoformat())
+                    changed = updater.reindex_all_claims(orcidid, since=from_date.isoformat(), ignore_errors=True)
                     if len(changed):
                         orcidids.add(orcidid)
                 except:
@@ -125,11 +126,11 @@ def reindex_claims(since=None, **kwargs):
     worker.connect(app.config.get('RABBITMQ_URL'))  
     for orcidid in orcidids:
         try:
-            worker.publish({'orcidid': orcidid})
+            worker.publish({'orcidid': orcidid, 'force': True})
         except: # potential backpressure (we are too fast)
             time.sleep(2)
             print 'Conn problem, retrying...', orcidid
-            worker.publish({'orcidid': orcidid})
+            worker.publish({'orcidid': orcidid, 'force': True})
         
     with app.session_scope() as session:
         kv = session.query(KeyValue).filter_by(key='last.reindex').first()
@@ -153,6 +154,7 @@ def repush_claims(since=None, **kwargs):
     
     :return: no return
     """
+    logging.captureWarnings(True)
     if not since or isinstance(since, basestring) and since.strip() == "":
         with app.session_scope() as session:
             kv = session.query(KeyValue).filter_by(key='last.repush').first()
