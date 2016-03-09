@@ -15,14 +15,14 @@ import sys
 import time
 import pika
 import argparse
-import json
+import logging
 import traceback
 
 from ADSOrcid import app, importer, updater
 from ADSOrcid.pipeline import GenericWorker
 from ADSOrcid.pipeline import pstart
 from ADSOrcid.utils import setup_logging, get_date
-from ADSOrcid.models import ClaimsLog, KeyValue, Records
+from ADSOrcid.models import ClaimsLog, KeyValue, Records, AuthorInfo
 
 logger = setup_logging(__file__, __name__)
 RabbitMQWorker = GenericWorker.RabbitMQWorker
@@ -59,7 +59,7 @@ def run_import(claims_file, queue='ads.orcid.claims', **kwargs):
     
     :return: no return
     """
-
+    logging.captureWarnings(True)
     logger.info('Loading records from: {0}'.format(claims_file))
     c = []
     importer.import_recs(claims_file, collector=c)
@@ -86,6 +86,7 @@ def reindex_claims(since=None, **kwargs):
     
     :return: no return
     """
+    logging.captureWarnings(True)
     if not since or isinstance(since, basestring) and since.strip() == "":
         with app.session_scope() as session:
             kv = session.query(KeyValue).filter_by(key='last.reindex').first()
@@ -97,39 +98,48 @@ def reindex_claims(since=None, **kwargs):
     from_date = get_date(since)
     orcidids = set()
     
-    logger.info('Loading records since: {0}'.format(from_date.isoformat()))
-    
-    # first re-check our own database (replay the logs)
-    with app.session_scope() as session:
-        for claim in session.query(ClaimsLog.orcidid.distinct().label('orcidid')).all():
-            orcidid = claim.orcidid
-            if orcidid and orcidid.strip() != "":
-                try:
-                    changed = updater.reindex_all_claims(orcidid, since=from_date.isoformat())
-                    if len(changed):
-                        orcidids.add(orcidid)
-                except:
-                    print 'Error processing: {0}'.format(orcidid)
-                    traceback.print_exc()
-                    continue
-    
-    # then get all new/old orcidids from orcid-service
-    orcidids = orcidids.union(updater.get_all_touched_profiles(from_date.isoformat()))
-    from_date = get_date()
-    
     # trigger re-indexing
     worker = RabbitMQWorker(params={
         'publish': 'ads.orcid.fresh-claims',
         'exchange': app.config.get('EXCHANGE', 'ads-orcid')
     })
-    worker.connect(app.config.get('RABBITMQ_URL'))  
+    worker.connect(app.config.get('RABBITMQ_URL'))
+    
+    
+    logger.info('Loading records since: {0}'.format(from_date.isoformat()))
+    
+    # first re-check our own database (replay the logs)
+    with app.session_scope() as session:
+        for author in session.query(AuthorInfo.orcidid.distinct().label('orcidid')).all():
+            orcidid = author.orcidid
+            if orcidid and orcidid.strip() != "":
+                try:
+                    changed = updater.reindex_all_claims(orcidid, since=from_date.isoformat(), ignore_errors=True)
+                    if len(changed):
+                        orcidids.add(orcidid)
+                    worker.publish({'orcidid': orcidid, 'force': True})
+                except:
+                    print 'Error processing: {0}'.format(orcidid)
+                    traceback.print_exc()
+                    continue
+                if len(orcidids) % 100 == 0:
+                    print 'Done replaying {0} profiles'.format(len(orcidids))
+    
+    print 'Now harvesting orcid profiles...'
+    
+    # then get all new/old orcidids from orcid-service
+    all_orcids = set(updater.get_all_touched_profiles(from_date.isoformat()))
+    orcidids = all_orcids.difference(orcidids)
+    from_date = get_date()
+    
+      
     for orcidid in orcidids:
         try:
-            worker.publish({'orcidid': orcidid})
+            worker.publish({'orcidid': orcidid, 'force': True})
         except: # potential backpressure (we are too fast)
             time.sleep(2)
             print 'Conn problem, retrying...', orcidid
-            worker.publish({'orcidid': orcidid})
+            worker.publish({'orcidid': orcidid, 'force': True})
         
     with app.session_scope() as session:
         kv = session.query(KeyValue).filter_by(key='last.reindex').first()
@@ -140,7 +150,8 @@ def reindex_claims(since=None, **kwargs):
             kv.value = from_date.isoformat()
         session.commit()
 
-    logger.info('Done processing {0} orcid ids.'.format(len(orcidids)))
+    print 'Done'
+    logger.info('Done submitting {0} orcid ids.'.format(len(orcidids)))
 
 
 def repush_claims(since=None, **kwargs):
@@ -153,6 +164,7 @@ def repush_claims(since=None, **kwargs):
     
     :return: no return
     """
+    logging.captureWarnings(True)
     if not since or isinstance(since, basestring) and since.strip() == "":
         with app.session_scope() as session:
             kv = session.query(KeyValue).filter_by(key='last.repush').first()

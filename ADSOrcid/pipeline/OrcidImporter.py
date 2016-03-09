@@ -125,6 +125,8 @@ class OrcidImporter(GenericWorker.RabbitMQWorker):
              'orcidid': '.....',
              'start': 'ISO8801 formatted date (optional), indicates 
                  the moment we checked the orcid-service'
+             'force': Boolean (if present, we'll not skip unchanged
+                 profile)
             }
         :return: no return
         """
@@ -174,8 +176,11 @@ class OrcidImporter(GenericWorker.RabbitMQWorker):
                 q = session.query(ClaimsLog).filter_by(orcidid=orcidid).order_by(ClaimsLog.id.asc())
             else:
                 if get_date(last_update.created) == updt:
-                    self.logger.info("Skipping {0} (profile unchanged)".format(orcidid))
-                    return
+                    if msg.get('force'):
+                        self.logger.info("Profile {0} unchanged, but force in effect.".format(orcidid))
+                    else:
+                        self.logger.info("Skipping {0} (profile unchanged)".format(orcidid))
+                        return
                 q = session.query(ClaimsLog).filter(
                     and_(ClaimsLog.orcidid == orcidid, ClaimsLog.id > last_update.id)) \
                     .order_by(ClaimsLog.id.asc())
@@ -193,7 +198,7 @@ class OrcidImporter(GenericWorker.RabbitMQWorker):
                     removed[bibc] = (cl.bibcode, get_date(cl.created))
                     if bibc in updated:
                         del updated[bibc]
-                elif cl.status in ('claimed', 'updated'):
+                elif cl.status in ('claimed', 'updated', 'forced'):
                     updated[bibc] = (cl.bibcode, get_date(cl.created))
                     if bibc in removed:
                         del removed[bibc]
@@ -277,6 +282,13 @@ class OrcidImporter(GenericWorker.RabbitMQWorker):
                                                       orcidid=orcidid, 
                                                       provenance=self.__class__.__name__, 
                                                       status='updated',
+                                                      date=orcid_claim[1])
+                                                      )
+                elif msg.get('force', False):
+                    to_claim.append(importer.create_claim(bibcode=orcid_claim[0], 
+                                                      orcidid=orcidid, 
+                                                      provenance=self.__class__.__name__, 
+                                                      status='forced',
                                                       date=orcid_claim[1])
                                                       )
                 else:

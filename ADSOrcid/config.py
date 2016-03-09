@@ -35,7 +35,8 @@ API_ORCID_PROFILE_ENDPOINT = 'http://pub.orcid.org/v1.2/%s/orcid-bio'
 # lower than this, we refuse to match names, eg.
 # Levenshtein.ratio('Neumann, John', 'Neuman, J')
 # > Out[2]: 0.8181818181818182
-MIN_LEVENSHTEIN_RATIO = 0.8
+# Experimental results show 0.69 to be the best value.
+MIN_LEVENSHTEIN_RATIO = 0.69
 
 
 # possible values: WARN, INFO, DEBUG
@@ -68,7 +69,7 @@ WORKERS = {
         'durable': True
     },
     'ClaimsRecorder': {
-        'concurrency': 1,
+        'concurrency': 1, # for production 5 is a good value
         'subscribe': 'ads.orcid.updates',
         'publish': 'ads.orcid.output',
         'error': 'ads.orcid.error',

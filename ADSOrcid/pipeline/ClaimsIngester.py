@@ -3,7 +3,7 @@
 from .. import app
 from . import GenericWorker
 from .. import matcher
-
+from .. import updater
 
 class ClaimsIngester(GenericWorker.RabbitMQWorker):
     """
@@ -41,6 +41,21 @@ class ClaimsIngester(GenericWorker.RabbitMQWorker):
         if not author:
             raise Exception('Unable to retrieve info for {0}'.format(msg['orcidid']))
         
+        # clean up the bicode
+        bibcode = msg['bibcode'].strip()
+        if ' ' in bibcode:
+            parts = bibcode.split()
+            l = [len(x) for x in parts]
+            if 19 in l:
+                bibcode = parts[l.index(19)] 
+        
+        # check if we can translate the bibcode/identifier
+        rec = updater.retrieve_metadata(bibcode)
+        if rec.get('bibcode') != bibcode:
+            self.logger.warning('Resolving {0} into {1}'.format(bibcode, rec.get('bibcode')))
+        bibcode = rec.get('bibcode') 
+        
+        msg['bibcode'] = bibcode
         msg['name'] = author['name']
         if author.get('facts', None):
             for k, v in author['facts'].iteritems():
