@@ -122,7 +122,7 @@ def create_orcid(orcid, name=None, facts=None):
         name = name or profile['name']
         facts = profile
 
-    return AuthorInfo(orcidid=orcid, name=name, facts=json.dumps(facts), account_id=facts.get('authorized', None))
+    return AuthorInfo(orcidid=orcid, name=name, facts=json.dumps(facts), account_id=facts.get('authorized', None) and 1 or None)
 
 
 def harvest_author_info(orcidid, name=None, facts=None):

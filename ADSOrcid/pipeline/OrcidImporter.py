@@ -4,7 +4,7 @@ import time
 import traceback
 from ..models import KeyValue, ClaimsLog
 from ..utils import get_date
-from .. import matcher
+from .. import matcher, updater
 import requests
 import datetime
 import threading
@@ -210,11 +210,31 @@ class OrcidImporter(GenericWorker.RabbitMQWorker):
                 bibc = None
                 try:
                     ids =  w['work-external-identifiers']['work-external-identifier']
+                    seek_ids = []
+                    
+                    # painstakingly check ids (start from a bibcode) if we can find it
+                    # we'll send it through (but start from bibcodes, then dois, arxiv...)
+                    fmap = app.config.get('ORCID_IDENTIFIERS_ORDER', {'bibcode': 9, '*': -1})
                     for x in ids:
                         xtype = x.get('work-external-identifier-type', None)
-                        if xtype and xtype.lower() == 'bibcode':
-                            bibc = x['work-external-identifier-id']['value']
+                        if xtype:
+                            seek_ids.append((fmap.get(xtype.lower().strip(), fmap.get('*', -1)), 
+                                             x['work-external-identifier-id']['value']))
+                    
+                    if len(seek_ids) == 0:
+                        continue
+                    
+                    seek_ids = sorted(seek_ids, key=lambda x: x[0], reverse=True)
+                    for _priority, fvalue in seek_ids:
+                        try:
+                            metadata = updater.retrieve_metadata(fvalue, search_identifiers=True)
+                            bibc = metadata.get('bibcode')
+                            self.logger.info('Match found {0} -> {1}'.format(fvalue, bibc))
                             break
+                        except Exception, e:
+                            self.logger.warning(e.message)
+                            
+                    
                     if bibc:
                         # would you believe that orcid doesn't return floats?
                         ts = str(w['last-modified-date']['value'])
@@ -225,6 +245,9 @@ class OrcidImporter(GenericWorker.RabbitMQWorker):
                         except KeyError:
                             provenance = 'orcid-profile'
                         orcid_present[bibc.lower().strip()] = (bibc.strip(), get_date(ts.isoformat()), provenance)
+                    else:
+                        self.logger.warning('Found no bibcode for {0}'.format(ids))
+                        
                 except KeyError, e:
                     self.logger.warning('Error processing a record: '
                         '{0} ({1})'.format(w,
@@ -300,4 +323,5 @@ class OrcidImporter(GenericWorker.RabbitMQWorker):
         if len(to_claim):
             json_claims = importer.insert_claims(to_claim)
             for claim in json_claims:
+                claim['bibcode_verified'] = True
                 self.publish(claim)

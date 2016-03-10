@@ -56,9 +56,9 @@ class TestWorkers(test_base.TestUnit):
                                })
         worker.forward.assert_called_with([u'2014ATel.6427....1V'], topic='SolrUpdateRoute')
     
-    
+    @patch('ADSOrcid.updater.retrieve_metadata', side_effect=lambda x, **kwargs: {'bibcode': x})
     @httpretty.activate
-    def test_ingester_logic(self):
+    def test_ingester_logic(self, updater_retrieve_metadata):
         """Has to be able to diff orcid profile against the 
         existing log in a database"""
         #self.maxDiff = None
