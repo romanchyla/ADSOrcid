@@ -1,3 +1,5 @@
+import os
+
 # Connection to the database where we save orcid-claims (this database
 # serves as a running log of claims and storage of author-related
 # information). It is not consumed by others (ie. we 'push' results) 
@@ -55,7 +57,7 @@ EXCHANGE = 'ads-orcid'
 
 WORKERS = {
     'OrcidImporter': {
-        'concurrency': 1,
+        'concurrency': os.getenv('DEBUG', False) and 1 or 5,
         'subscribe': 'ads.orcid.fresh-claims',
         'publish': 'ads.orcid.claims',
         'error': 'ads.orcid.error',
@@ -69,7 +71,7 @@ WORKERS = {
         'durable': True
     },
     'ClaimsRecorder': {
-        'concurrency': 1, # for production 5 is a good value
+        'concurrency': os.getenv('DEBUG', False) and 1 or 5,
         'subscribe': 'ads.orcid.updates',
         'publish': 'ads.orcid.output',
         'error': 'ads.orcid.error',
@@ -92,3 +94,9 @@ WORKERS = {
     },
     
 }
+
+# order in which the identifiers (inside an orcid profile) will be tested
+# to retrieve a canonical bibcode; first match will stop the process. Higher number
+# means 'higher priority'
+# the '*' will be used for no-match, if this number is <0, the identifier will be skipped
+ORCID_IDENTIFIERS_ORDER = {'bibcode': 9, 'doi': 8, 'arxiv': 7, '*': 0}
