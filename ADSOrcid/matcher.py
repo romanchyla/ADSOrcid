@@ -82,7 +82,7 @@ def update_author(author):
         
         for attname in attrs:
             if old_facts.get(attname, None) != new_facts.get(attname, None):
-                session.add(ChangeLog(key='{0}:update:{1}'.format(author.orcidid, attname), 
+                session.add(ChangeLog(key=u'{0}:update:{1}'.format(author.orcidid, attname), 
                            oldvalue=json.dumps(old_facts.get(attname, None)),
                            newvalue=json.dumps(new_facts.get(attname, None))))
                 is_dirty = True
@@ -249,10 +249,10 @@ def _build_short_forms(orig_name):
         x = w_parts[i]
         if len(x) > 1:
             w_parts[i] = x[0]
-            ret.add('{0}, {1}'.format(surname, ' '.join(w_parts)))
+            ret.add(u'{0}, {1}'.format(surname, ' '.join(w_parts)))
     w_parts = [x[0] for x in parts]
     while len(w_parts) > 0:
-        ret.add('{0}, {1}'.format(surname, ' '.join(w_parts)))
+        ret.add(u'{0}, {1}'.format(surname, ' '.join(w_parts)))
         w_parts.pop()
 
     return list(ret)
