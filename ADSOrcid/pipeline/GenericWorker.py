@@ -3,6 +3,7 @@ import pika
 import sys
 import json
 import traceback
+from .exceptions import ProcessingException
 
 class RabbitMQWorker(object):
     """
@@ -78,9 +79,10 @@ class RabbitMQWorker(object):
                     raise Exception('exchange must be specified for forwarding')
                     
             return True
-        except:
+        except Exception, e:
+            self.logger.error(traceback.format_exc())
             self.logger.error(sys.exc_info())
-            raise Exception(sys.exc_info())
+            raise e
 
 
     def publish_to_error_queue(self, message, exchange=None, routing_key=None,
@@ -205,7 +207,7 @@ class RabbitMQWorker(object):
                                                 channel=channel, 
                                                 method_frame=method_frame, 
                                                 header_frame=header_frame)
-        except Exception, e:
+        except ProcessingException, e:
             self.results = 'Offloading to ErrorWorker due to exception:' \
                            ' {0}'.format(e.message)
             
@@ -224,6 +226,11 @@ class RabbitMQWorker(object):
                 {self.__class__.__name__: message}),
                 header_frame=header_frame
             )
+        except Exception, e:
+            self.logger.error('Unrecoverable exception: '
+                                '{0} ({1})'.format(e.message,
+                                                   traceback.format_exc()))
+            raise e
 
         # Send delivery acknowledgement
         self.channel.basic_ack(delivery_tag=method_frame.delivery_tag)

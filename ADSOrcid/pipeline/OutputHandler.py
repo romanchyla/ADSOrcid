@@ -1,6 +1,7 @@
 from . import GenericWorker
 from .. import app 
 from copy import deepcopy
+from .exceptions import ProcessingException
 
 class OutputHandler(GenericWorker.RabbitMQWorker):
     """
@@ -66,9 +67,9 @@ class OutputHandler(GenericWorker.RabbitMQWorker):
         # retrieve authors (and bail if not available)
         authors = self.mongodb[app.config.get('MONGODB_AUTHORS', 'authors')].find_one({'_id': bibcode})
         if not authors:
-            raise Exception('{0} has no authors in the mongodb'.format(bibcode))
+            raise ProcessingException('{0} has no authors in the mongodb'.format(bibcode))
         
-        if claim['authors'] != authors:
+        if claim['authors'] != authors: #TODO: make less stringent
             self.logger.warning('The authors as retrieved from MongoDB differ!. {0} : {1}'
                                 .format(claim['authors'], authors))
         

@@ -4,6 +4,7 @@ from .. import app
 from . import GenericWorker
 from .. import matcher
 from .. import updater
+from .exceptions import ProcessingException
 
 class ClaimsIngester(GenericWorker.RabbitMQWorker):
     """
@@ -28,10 +29,10 @@ class ClaimsIngester(GenericWorker.RabbitMQWorker):
         """
         
         if not isinstance(msg, dict):
-            raise Exception('Received unknown payload {0}'.format(msg))
+            raise ProcessingException('Received unknown payload {0}'.format(msg))
         
         if not msg.get('orcidid'):
-            raise Exception('Unusable payload, missing orcidid {0}'.format(msg))
+            raise ProcessingException('Unusable payload, missing orcidid {0}'.format(msg))
 
         if msg.get('status', 'created') in ('unchanged', '#full-import'):
             return
@@ -39,7 +40,7 @@ class ClaimsIngester(GenericWorker.RabbitMQWorker):
         author = matcher.retrieve_orcid(msg['orcidid'])
         
         if not author:
-            raise Exception('Unable to retrieve info for {0}'.format(msg['orcidid']))
+            raise ProcessingException('Unable to retrieve info for {0}'.format(msg['orcidid']))
         
         # clean up the bicode
         bibcode = msg['bibcode'].strip()
