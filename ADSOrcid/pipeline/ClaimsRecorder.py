@@ -3,7 +3,7 @@
 from .. import app
 from . import GenericWorker
 from ADSOrcid import updater
-
+from .exceptions import ProcessingException
 
 class ClaimsRecorder(GenericWorker.RabbitMQWorker):
     """
@@ -27,10 +27,10 @@ class ClaimsRecorder(GenericWorker.RabbitMQWorker):
         """
         
         if not isinstance(claim, dict):
-            raise Exception('Received unknown payload {0}'.format(claim))
+            raise ProcessingException('Received unknown payload {0}'.format(claim))
         
         if not claim.get('orcidid'):
-            raise Exception('Unusable payload, missing orcidid {0}'.format(claim))
+            raise ProcessingException('Unusable payload, missing orcidid {0}'.format(claim))
 
         bibcode = claim['bibcode']
         rec = updater.retrieve_record(bibcode)

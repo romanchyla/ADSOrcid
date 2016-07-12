@@ -40,7 +40,7 @@ class AuthorInfo(Base):
     orcidid = Column(String(19), unique=True)
     name = Column(String(255))
     facts = Column(Text)
-    status = Column(Enum('blacklisted', 'postponed'))
+    status = Column(Enum('blacklisted', 'postponed', name='status'))
     account_id = Column(Integer)
     created = Column(UTCDateTime, default=get_date)
     updated = Column(UTCDateTime, default=get_date)
@@ -58,7 +58,7 @@ class ClaimsLog(Base):
     id = Column(Integer, primary_key=True)
     orcidid = Column(String(19))
     bibcode = Column(String(19))
-    status = Column(Enum('claimed', 'updated', 'removed', 'unchanged', 'forced', '#full-import'))
+    status = Column(Enum('claimed', 'updated', 'removed', 'unchanged', 'forced', '#full-import', name='status'))
     provenance = Column(String(255))
     created = Column(UTCDateTime, default=get_date)
     
