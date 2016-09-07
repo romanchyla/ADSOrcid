@@ -5,6 +5,7 @@ Library for updating papers (db claims/records).
 
 import Levenshtein
 from . import matcher
+from .exceptions import IgnorableException
 import app
 import json
 from .models import Records
@@ -38,18 +39,18 @@ def retrieve_metadata(bibcode, search_identifiers=False):
         elif data.get('numFound') == 0:
             if search_identifiers:
                 bibcode_cache.setdefault(bibcode, {}) # insert to prevent failed retrievals
-                raise Exception(u'No metadata found for identifier:{0}'.format(bibcode))
+                raise IgnorableException(u'No metadata found for identifier:{0}'.format(bibcode))
             else:
                 return retrieve_metadata(bibcode, search_identifiers=True)
         else:
             if data.get('numFound') > 10:
-                raise Exception(u'Insane num of results for {0} ({1})'.format(bibcode, data.get('numFound')))
+                raise IgnorableException(u'Insane num of results for {0} ({1})'.format(bibcode, data.get('numFound')))
             docs = data.get('docs', [])
             for d in docs:
                 for ir in d.get('identifier', []):
                     if ir.lower().strip() == bibcode.lower().strip():
                         return d
-            raise Exception(u'More than one document found for {0}'.format(bibcode))
+            raise IgnorableException(u'More than one document found for {0}'.format(bibcode))
         
 
 
@@ -125,7 +126,7 @@ def mark_processed(bibcode):
     with app.session_scope() as session:
         r = session.query(Records).filter_by(bibcode=bibcode).first()
         if r is None:
-            raise Exception('Nonexistant record for {0}'.format(bibcode))
+            raise IgnorableException('Nonexistant record for {0}'.format(bibcode))
         r.processed = get_date()
         session.commit()
         return True        

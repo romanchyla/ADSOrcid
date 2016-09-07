@@ -4,6 +4,7 @@ import sys
 import json
 import traceback
 from .exceptions import ProcessingException
+from ..exceptions import IgnorableException
 
 class RabbitMQWorker(object):
     """
@@ -226,6 +227,8 @@ class RabbitMQWorker(object):
                 {self.__class__.__name__: message}),
                 header_frame=header_frame
             )
+        except IgnorableException, e:
+            pass
         except Exception, e:
             self.logger.error(u'Unrecoverable exception: '
                                 u'{0} ({1})'.format(e.message,
