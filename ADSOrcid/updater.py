@@ -37,7 +37,8 @@ def retrieve_metadata(bibcode, search_identifiers=False):
             return docs[0]
         elif data.get('numFound') == 0:
             if search_identifiers:
-                raise Exception(u'Nothing found for identifier:{0}'.format(bibcode))
+                bibcode_cache.setdefault(bibcode, {}) # insert to prevent failed retrievals
+                raise Exception(u'No metadata found for identifier:{0}'.format(bibcode))
             else:
                 return retrieve_metadata(bibcode, search_identifiers=True)
         else:
@@ -184,9 +185,17 @@ def update_record(rec, claim):
         if fx in claim and claim[fx]:
             
             assert(isinstance(claim[fx], list))
-            
             idx = find_orcid_position(rec['authors'], claim[fx])
-            if idx > -1:
+            if idx > -1:              
+                if idx >= num_authors:
+                    app.logger.error(u'Index is beyond list boundary: \n' + 
+                                     u'Field {fx}, author {author}, len(authors)={la}, len({fx})=lfx'
+                                     .format(
+                                       fx=fx, author=claim[fx], la=num_authors, lfx=len(claim[fx])
+                                       )
+                                     )
+                    continue
+                
                 claims[fld_name][idx] = claim.get('status', 'created') == 'removed' and '-' or orcidid
                 return (fld_name, idx)
     

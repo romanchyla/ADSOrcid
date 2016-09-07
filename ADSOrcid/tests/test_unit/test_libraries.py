@@ -367,7 +367,21 @@ class TestMatcherUpdater(test_base.TestUnit):
                ], 
               ["Accomazzi, Alberto"]);
         self.assertEqual(res, -1)
-
+        
+        # check boundaries
+        res = updater.find_orcid_position([
+               "Erdmann, Christopher",
+               "Frey, Katie"
+               ], 
+              ["Erdmann, C"]);
+        self.assertEqual(res, 0)
+        res = updater.find_orcid_position([
+               "Erdmann, Christopher",
+               "Cote, Ann",
+               "Frey, Katie"
+               ], 
+              ["Frey, Katie"]);
+        self.assertEqual(res, 2)
 
     def test_update_database(self):
         """Inserts a record (of claims) into the database"""
