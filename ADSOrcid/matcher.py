@@ -156,8 +156,8 @@ def harvest_author_info(orcidid, name=None, facts=None):
             'family-name' in j['orcid-profile']['orcid-bio']['personal-details'] and \
             'given-names' in j['orcid-profile']['orcid-bio']['personal-details']:
             
-            fname = j['orcid-profile']['orcid-bio']['personal-details'].get('family-name', {}).get('value', None)
-            gname = j['orcid-profile']['orcid-bio']['personal-details'].get('given-names', {}).get('value', None)
+            fname = (j['orcid-profile']['orcid-bio']['personal-details'].get('family-name', {}) or {}).get('value', None)
+            gname = (j['orcid-profile']['orcid-bio']['personal-details'].get('given-names', {}) or {}).get('value', None)
             
             if fname and gname:
                 author_data['orcid_name'] = ['%s, %s' % (fname, gname)]

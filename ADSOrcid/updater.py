@@ -37,18 +37,18 @@ def retrieve_metadata(bibcode, search_identifiers=False):
             return docs[0]
         elif data.get('numFound') == 0:
             if search_identifiers:
-                raise Exception('Nothing found for identifier:{0}'.format(bibcode))
+                raise Exception(u'Nothing found for identifier:{0}'.format(bibcode))
             else:
                 return retrieve_metadata(bibcode, search_identifiers=True)
         else:
             if data.get('numFound') > 10:
-                raise Exception('Insane num of results for {0} ({1})'.format(bibcode, data.get('numFound')))
+                raise Exception(u'Insane num of results for {0} ({1})'.format(bibcode, data.get('numFound')))
             docs = data.get('docs', [])
             for d in docs:
                 for ir in d.get('identifier', []):
                     if ir.lower().strip() == bibcode.lower().strip():
                         return d
-            raise Exception('More than one document found for {0}'.format(bibcode))
+            raise Exception(u'More than one document found for {0}'.format(bibcode))
         
 
 
@@ -228,12 +228,16 @@ def find_orcid_position(authors_list, name_variants):
         author_name = al[res[0][1]]
         variant_name = nv[res[0][2]]
         if author_name in variant_name or variant_name in author_name:
-            app.logger.debug('Using submatch for: %s (required:%s) closest: %s, variant: %s' \
-                        % (res[0], app.config.get('MIN_LEVENSHTEIN_RATIO', 0.9), author_name, variant_name))
+            app.logger.debug(u'Using submatch for: %s (required:%s) closest: %s, variant: %s' \
+                        % (res[0], app.config.get('MIN_LEVENSHTEIN_RATIO', 0.9), 
+                           unicode(author_name, 'utf-8'), 
+                           unicode(variant_name, 'utf-8')))
             return res[0][1]
             
-        app.logger.debug('No match found: the closest is: %s (required:%s) closest: %s, variant: %s' \
-                        % (res[0], app.config.get('MIN_LEVENSHTEIN_RATIO', 0.9), author_name, variant_name))
+        app.logger.debug(u'No match found: the closest is: %s (required:%s) closest: %s, variant: %s' \
+                        % (res[0], app.config.get('MIN_LEVENSHTEIN_RATIO', 0.9), 
+                           unicode(author_name, 'utf-8'), 
+                           unicode(variant_name, 'utf-8')))
         return -1
     
     return res[0][1]
@@ -300,7 +304,7 @@ def reindex_all_claims(orcidid, since=None, ignore_errors=False):
                         recs_modified.add(bibcode)
                 except Exception, e:
                     if ignore_errors:
-                        app.logger.error('Error processing {0} {1}'.format(bibcode, orcidid))
+                        app.logger.error(u'Error processing {0} {1}'.format(bibcode, orcidid))
                     else:
                         raise e
                     

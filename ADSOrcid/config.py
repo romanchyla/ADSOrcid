@@ -57,7 +57,7 @@ EXCHANGE = 'ads-orcid'
 
 WORKERS = {
     'OrcidImporter': {
-        'concurrency': os.getenv('DEBUG', False) and 1 or 5,
+        'concurrency': 1,
         'subscribe': 'ads.orcid.fresh-claims',
         'publish': 'ads.orcid.claims',
         'error': 'ads.orcid.error',
@@ -71,7 +71,7 @@ WORKERS = {
         'durable': True
     },
     'ClaimsRecorder': {
-        'concurrency': os.getenv('DEBUG', False) and 1 or 5,
+        'concurrency': 1,
         'subscribe': 'ads.orcid.updates',
         'publish': 'ads.orcid.output',
         'error': 'ads.orcid.error',

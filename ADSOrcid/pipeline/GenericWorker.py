@@ -202,24 +202,24 @@ class RabbitMQWorker(object):
 
         message = json.loads(body)
         try:
-            self.logger.debug('Running on message')
+            self.logger.debug(u'Running on message')
             self.results = self.process_payload(message, 
                                                 channel=channel, 
                                                 method_frame=method_frame, 
                                                 header_frame=header_frame)
         except ProcessingException, e:
-            self.results = 'Offloading to ErrorWorker due to exception:' \
-                           ' {0}'.format(e.message)
+            self.results = u'Offloading to ErrorWorker due to exception:' \
+                           u' {0}'.format(e.message)
             
             if isinstance(message, dict):
-                self.logger.warning('Offloading to ErrorWorker due to exception (bibcode={0}, orcidid={1})'
-                                '{2} ({3})'.format(message.get('bibcode', '-'),
+                self.logger.warning(u'Offloading to ErrorWorker due to exception (bibcode={0}, orcidid={1})'
+                                u'{2} ({3})'.format(message.get('bibcode', '-'),
                                                    message.get('orcidid', '-'),
                                                    e.message,
                                                    traceback.format_exc()))
             else:
-                self.logger.warning('Offloading to ErrorWorker due to exception: '
-                                '{0} ({1})'.format(e.message,
+                self.logger.warning(u'Offloading to ErrorWorker due to exception: '
+                                u'{0} ({1})'.format(e.message,
                                                    traceback.format_exc()))
 
             self.publish_to_error_queue(json.dumps(
@@ -227,8 +227,8 @@ class RabbitMQWorker(object):
                 header_frame=header_frame
             )
         except Exception, e:
-            self.logger.error('Unrecoverable exception: '
-                                '{0} ({1})'.format(e.message,
+            self.logger.error(u'Unrecoverable exception: '
+                                u'{0} ({1})'.format(e.message,
                                                    traceback.format_exc()))
             raise e
 

@@ -137,6 +137,7 @@ class TestPipeline(test_base.TestFunctional):
         
         # check results
         claim = mworker.mongodb[self.app.config.get('MONGODB_COLL', 'orcid_claims')].find_one({'_id': '2015ASPC..495..401C'})
+        self.assertTrue(claim)
         self.assertEquals(claim['verified'],
                           ['0000-0003-3041-2092', '-','-','-','-','-','-','-','-','-', ] 
                           )
