@@ -87,7 +87,7 @@ WORKERS = {
         }
     },
     'ErrorHandler': {
-        'subscribe': None,
+        'subscribe': 'ads.orcid.error',
         'exchange': None,
         'publish': None,
         'durable' : False

@@ -248,3 +248,7 @@ class RabbitMQWorker(object):
 
         self.connect(self.params['RABBITMQ_URL'])
         self.subscribe(self.on_message)
+        
+    def terminate(self):
+        """Stops the worker."""
+        self.channel.stop_consuming()

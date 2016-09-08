@@ -11,10 +11,13 @@ import unittest
 import time
 import json
 import mock
+import signal
 from ADSOrcid.tests import test_base
 from ADSOrcid.pipeline import workers, GenericWorker
 from ADSOrcid import app, models
 import subprocess
+import threading
+import os
 
 class TestPipeline(test_base.TestFunctional):
     """
@@ -28,6 +31,31 @@ class TestPipeline(test_base.TestFunctional):
     API_TOKEN = '.......'
 
     """
+    
+    def test_start_stop(self):
+        """Check that workers get restarted."""
+        
+        self.app.config['ORCID_CHECK_FOR_CHANGES'] = 1
+        
+        def start():
+            self.TM.poll_loop(poll_interval=0.1)
+        
+        starter = threading.Thread(target=start)
+        starter.start()
+        
+        time.sleep(1)
+        
+        for worker, params in self.TM.workers.iteritems():
+            for x in params.get('active', []):
+                self.assertTrue(x['proc'].is_alive(), "Not alive: {}".format(worker))
+        
+        self.TM.stop_workers()
+        
+        time.sleep(6)
+        for worker, params in self.TM.workers.iteritems():
+            for x in params.get('active', []):
+                self.assertFalse(x['proc'].is_alive())
+        #os.kill(os.getpid(), signal.SIGTERM)
 
     def test_output_handler(self):
         """Check the remote queue can receive a message from us
@@ -78,7 +106,7 @@ class TestPipeline(test_base.TestFunctional):
         
     
 
-    def test_functionality_on_new_claim(self):
+    def xtest_functionality_on_new_claim(self):
         """
         Main test, it pretends we have received claims from the 
         ADSWS

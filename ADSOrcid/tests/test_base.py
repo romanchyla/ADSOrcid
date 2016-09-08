@@ -58,7 +58,8 @@ class TestFunctional(TestUnit):
         # Queues and routes are switched on so that they can allow workers
         # to connect
         app = self.app
-        self.TM = pstart.TaskMaster(app.config.get('RABBITMQ_URL'),
+        self.TM = pstart.TaskMaster(
+                        app.config.get('RABBITMQ_URL'),
                         'ads-orcid-test',
                         app.config.get('QUEUES'),
                         app.config.get('WORKERS'))
