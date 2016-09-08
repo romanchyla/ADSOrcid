@@ -183,7 +183,8 @@ class TaskMaster(Singleton):
         
         # Define the SIGTERM handler
         signal.signal(signal.SIGTERM, self.quit)
-    
+        
+        
         while self.running:
             self.start_workers(verbose=verbose, extra_params=extra_params)
             time.sleep(poll_interval)
@@ -191,7 +192,6 @@ class TaskMaster(Singleton):
             for worker, params in self.workers.iteritems():
                 for active in params['active']:
                     if not active['proc'].is_alive():
-
                         logger.debug('{0} is not alive, restarting: {1}'.format(
                             active['proc'], worker))
                         if hasattr(active['proc'], 'terminate'):
@@ -243,7 +243,7 @@ class TaskMaster(Singleton):
                 else:
                     process = threading.Thread(target=w.run, args=())
                 
-                process.daemon = True
+                #process.daemon = True
                 process.start()
 
                 if verbose:

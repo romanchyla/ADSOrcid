@@ -328,7 +328,27 @@ class TestMatcherUpdater(test_base.TestUnit):
         self.assertEqual(doc['claims']['verified'], 
             ['-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-'])
         
+        # the size differs
+        doc['claims']['verified'] = ['-']
+        r = updater.update_record(
+          doc,
+          {
+           'bibcode': '2015ApJ...799..123B', 
+           'orcidid': '0000-0003-2686-9241',
+           'account_id': '1',
+           'orcid_name': [u'Stern, Daniel'],
+           'author': [u'Stern, D', u'Stern, D K', u'Stern, Daniel'],
+           'author_norm': [u'Stern, D'],
+           'name': u'Stern, D K' 
+          }                          
+        )
+        self.assertEqual(r, ('verified', 12))
+        self.assertEqual(doc['claims']['verified'], 
+            ['-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '0000-0003-2686-9241', '-'])
         
+        self.assertEqual(14, len(doc['claims']['verified']))
+        
+
     def test_find_author_position(self):
         """
         Given the ORCID ID, and information about author name, 

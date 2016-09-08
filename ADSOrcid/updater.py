@@ -25,12 +25,15 @@ def retrieve_metadata(bibcode, search_identifiers=False):
     """
     From the API retrieve the set of metadata we want to know about the record.
     """
+    params={
+            'q': search_identifiers and 'identifier:"{0}"'.format(bibcode) or 'bibcode:"{0}"'.format(bibcode),
+            'fl': 'author,bibcode,identifier'
+            }
     r = requests.get(config.get('API_SOLR_QUERY_ENDPOINT'),
-         params={'q': search_identifiers and 'identifier:"{0}"'.format(bibcode) or 'bibcode:"{0}"'.format(bibcode),
-                 'fl': 'author,bibcode,identifier'},
+         params=params,
          headers={'Accept': 'application/json', 'Authorization': 'Bearer:%s' % config.get('API_TOKEN')})
     if r.status_code != 200:
-        raise Exception(r.text)
+        raise Exception('{}\n{}\n{}'.format(r.status_code, params, r.text))
     else:
         data = r.json().get('response', {})
         if data.get('numFound') == 1:
@@ -171,7 +174,7 @@ def update_record(rec, claim):
     if fld_name not in claims or claims[fld_name] is None:
         claims[fld_name] = ['-'] * num_authors
     elif len(claims[fld_name]) < num_authors: # check the lenght is correct
-        claims[fld_name] += ['-'] * (len(claims[fld_name]) - num_authors)
+        claims[fld_name] += ['-'] * (num_authors - len(claims[fld_name]))
 
     # always remove the orcidid
     modified = False    
