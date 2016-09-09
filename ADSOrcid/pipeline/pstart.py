@@ -186,23 +186,17 @@ class TaskMaster(Singleton):
                 
                 for worker, params in self.workers.iteritems():
                     for active in params['active']:
+                        if ttl and time.time()-active['start'] > ttl:
+                            logger.debug('time to live reached')
+                            if hasattr(active['proc'], 'terminate'):
+                                active['proc'].terminate()
+                            active['proc'].join(0.3)
                         if not active['proc'].is_alive():
                             logger.debug('{0} is not alive, restarting: {1}'.format(
                                 active['proc'], worker))
                             if hasattr(active['proc'], 'terminate'):
                                 active['proc'].terminate()
-                            active['proc'].join(3)
-                            if not active['proc'].is_alive():
-                                params['active'].remove(active)
-                            continue
-                        if ttl:
-                            if time.time()-active['start'] > ttl:
-                                logger.debug('time to live reached')
-                                if hasattr(active['proc'], 'terminate'):
-                                    active['proc'].terminate()
-                                active['proc'].join(3)
-                                active['proc'].is_alive()
-                                params['active'].remove(active)
+                            params['active'].remove(active)
                 
                 time.sleep(poll_interval)
 

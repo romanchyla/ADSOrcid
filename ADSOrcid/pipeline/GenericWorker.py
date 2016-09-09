@@ -5,7 +5,7 @@ import json
 import traceback
 from .exceptions import ProcessingException
 from ..exceptions import IgnorableException
-
+from pika.exceptions import ConnectionClosed
 class RabbitMQWorker(object):
     """
     Base worker class. Defines the plumbing to communicate with rabbitMQ
@@ -251,4 +251,12 @@ class RabbitMQWorker(object):
         
     def terminate(self):
         """Stops the worker."""
-        self.channel.stop_consuming()
+        try:
+            def stop():
+                raise SystemExit('Stop')
+            #print 'terminating', str(self)
+            self.connection.add_timeout(0.1, stop)
+            # this doesn't work reliably
+            #self.connection.close(200, 'closing for business')
+        except ConnectionClosed, e:
+            pass

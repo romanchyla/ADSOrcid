@@ -18,6 +18,7 @@ from ADSOrcid import app, models
 import subprocess
 import threading
 import os
+import random
 
 class TestPipeline(test_base.TestFunctional):
     """
@@ -55,7 +56,61 @@ class TestPipeline(test_base.TestFunctional):
         for worker, params in self.TM.workers.iteritems():
             for x in params.get('active', []):
                 self.assertFalse(x['proc'].is_alive())
-        #os.kill(os.getpid(), signal.SIGTERM)
+
+
+    def test_worker_restart(self):
+        """Check that workers are kept up (if we kill some of them)."""
+        
+        self.app.config['ORCID_CHECK_FOR_CHANGES'] = 1
+        
+        def start():
+            self.TM.poll_loop(poll_interval=0.1)
+        
+        starter = threading.Thread(target=start)
+        starter.start()
+        
+        time.sleep(1)
+        
+        for worker, params in self.TM.workers.iteritems():
+            for x in params.get('active', []):
+                self.assertTrue(x['proc'].is_alive(), "Not alive: {}".format(worker))
+        
+        i = random.randint(0, len(self.TM.workers))
+        worker, params = self.TM.workers.items()[i]
+        for x in params.get('active', []):
+            x['proc'].terminate()
+
+        time.sleep(1)
+        for worker, params in self.TM.workers.iteritems():
+            for x in params.get('active', []):
+                self.assertTrue(x['proc'].is_alive())
+        
+    
+    def test_worker_restart_ttl(self):
+        """Check that workers are kept up (if we kill some of them)."""
+        
+        self.app.config['ORCID_CHECK_FOR_CHANGES'] = 1
+        
+        def start():
+            self.TM.poll_loop(poll_interval=0.1, ttl=2)
+        
+        starter = threading.Thread(target=start)
+        starter.start()
+        
+        time.sleep(1)
+        
+        for worker, params in self.TM.workers.iteritems():
+            for x in params.get('active', []):
+                self.assertTrue(x['proc'].is_alive(), "Not alive: {}".format(worker))
+                x['foo'] = str(x['proc'])
+        
+        time.sleep(5)
+        
+        for worker, params in self.TM.workers.iteritems():
+            for x in params.get('active', []):
+                self.assertTrue(x['proc'].is_alive(), "Not alive: {} {}".format(worker, x))
+                self.assertTrue(x.get('foo', '') != str(x['proc']), 
+                        'Thread survived: {} {}'.format(worker, x['proc']))
 
     def test_output_handler(self):
         """Check the remote queue can receive a message from us
@@ -106,7 +161,7 @@ class TestPipeline(test_base.TestFunctional):
         
     
 
-    def xtest_functionality_on_new_claim(self):
+    def test_functionality_on_new_claim(self):
         """
         Main test, it pretends we have received claims from the 
         ADSWS
