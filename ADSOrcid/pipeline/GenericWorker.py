@@ -233,6 +233,7 @@ class RabbitMQWorker(object):
             self.logger.error(u'Unrecoverable exception: '
                                 u'{0} ({1})'.format(e.message,
                                                    traceback.format_exc()))
+            self.terminate()
             raise e
 
         # Send delivery acknowledgement
@@ -252,11 +253,14 @@ class RabbitMQWorker(object):
     def terminate(self):
         """Stops the worker."""
         try:
+            worker = self
+            def close():
+                worker.connection.close(200, 'closing for business')
             def stop():
                 raise SystemExit('Stop')
             #print 'terminating', str(self)
+            self.connection.add_timeout(0.1, close)
             self.connection.add_timeout(0.1, stop)
-            # this doesn't work reliably
-            #self.connection.close(200, 'closing for business')
+            
         except ConnectionClosed, e:
             pass

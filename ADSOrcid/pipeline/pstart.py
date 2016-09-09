@@ -256,10 +256,8 @@ class TaskMaster(Singleton):
                 w = eval('workers.{0}.{0}'.format(worker))(params)
                 
                 # decide if we want to run it multiprocessing
-                if conc > 1:
-                    process = multiprocessing.Process(target=w.run)
-                else:
-                    process = WorkerThread(w)
+                # process = multiprocessing.Process(target=w.run)
+                process = WorkerThread(w)
                 
                 #process.daemon = True
                 process.start()
