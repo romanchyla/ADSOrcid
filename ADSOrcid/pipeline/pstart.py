@@ -181,9 +181,11 @@ class TaskMaster(Singleton):
         self.running = True
         
         def check_pool():
+            
+            self.start_workers(verbose=verbose, extra_params=extra_params)
+            
             while self.running:
-                self.start_workers(verbose=verbose, extra_params=extra_params)
-                
+                time.sleep(poll_interval/2)                
                 for worker, params in self.workers.iteritems():
                     for active in params['active']:
                         if ttl and time.time()-active['start'] > ttl:
@@ -197,8 +199,8 @@ class TaskMaster(Singleton):
                             if hasattr(active['proc'], 'terminate'):
                                 active['proc'].terminate()
                             params['active'].remove(active)
-                
-                time.sleep(poll_interval)
+                time.sleep(poll_interval/2)
+                self.start_workers(verbose=verbose, extra_params=extra_params)
 
         def quit():
             self.quit()
@@ -230,6 +232,7 @@ class TaskMaster(Singleton):
                 threading.Thread.__init__(self, *args, **kwargs)
                 self._worker = worker
             def run(self):
+                self._worker = self._worker()
                 self._worker.run()
             def terminate(self):
                 self._worker.terminate()
@@ -253,7 +256,7 @@ class TaskMaster(Singleton):
                     params[par] = extra_params[par]
             
             while len(params['active']) < conc:
-                w = eval('workers.{0}.{0}'.format(worker))(params)
+                w = lambda: eval('workers.{0}.{0}'.format(worker))(params)
                 
                 # decide if we want to run it multiprocessing
                 # process = multiprocessing.Process(target=w.run)

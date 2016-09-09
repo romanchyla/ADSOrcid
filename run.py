@@ -17,6 +17,10 @@ import pika
 import argparse
 import logging
 import traceback
+import requests
+import warnings
+from requests.packages.urllib3 import exceptions
+warnings.simplefilter('ignore', exceptions.InsecurePlatformWarning)
 
 from ADSOrcid import app, importer, updater
 from ADSOrcid.pipeline import GenericWorker
@@ -216,7 +220,15 @@ def repush_claims(since=None, **kwargs):
 def start_pipeline():
     """Starts the workers and let them do their job"""
     pstart.start_pipeline({}, app)
-    
+
+
+def print_kvs():    
+    """Prints the values stored in the KeyValue table."""
+    print 'Key, Value from the storage:'
+    print '-' * 80
+    with app.session_scope() as session:
+        for kv in session.query(KeyValue).order_by('key').all():
+            print kv.key, kv.value
 
 if __name__ == '__main__':
 
@@ -262,6 +274,13 @@ if __name__ == '__main__':
                         default=None,
                         help='Starting date for reindexing')
     
+    parser.add_argument('-k', 
+                        '--kv', 
+                        dest='kv', 
+                        action='store_true',
+                        default=False,
+                        help='Show current values of KV store')
+    
     parser.set_defaults(purge_queues=False)
     parser.set_defaults(start_pipeline=False)
     args = parser.parse_args()
@@ -269,6 +288,11 @@ if __name__ == '__main__':
     app.init_app()
     
     work_done = False
+    
+    if args.kv:
+        work_done = True
+        print_kvs()
+
     if args.purge_queues:
         purge_queues(app.config.get('WORKERS'))
         sys.exit(0)

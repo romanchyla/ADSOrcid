@@ -224,11 +224,13 @@ class RabbitMQWorker(object):
                                                    traceback.format_exc()))
 
             self.publish_to_error_queue(json.dumps(
-                {self.__class__.__name__: message}),
+                {self.__class__.__name__: message, 'error': e.message}),
                 header_frame=header_frame
             )
         except IgnorableException, e:
-            pass
+            self.logger.warning(u'Ignorable exception: {0}\n'
+                                u'({1})'.format(e.message,
+                                                   traceback.format_exc()))
         except Exception, e:
             self.logger.error(u'Unrecoverable exception: '
                                 u'{0} ({1})'.format(e.message,
@@ -252,6 +254,7 @@ class RabbitMQWorker(object):
         
     def terminate(self):
         """Stops the worker."""
+        self.logger.info('Terminating: {}'.format(self))
         try:
             worker = self
             def close():
@@ -259,7 +262,7 @@ class RabbitMQWorker(object):
             def stop():
                 raise SystemExit('Stop')
             #print 'terminating', str(self)
-            self.connection.add_timeout(0.1, close)
+            self.connection.add_timeout(0.05, close)
             self.connection.add_timeout(0.1, stop)
             
         except ConnectionClosed, e:

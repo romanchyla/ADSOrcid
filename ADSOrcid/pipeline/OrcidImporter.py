@@ -11,6 +11,8 @@ import threading
 from sqlalchemy import and_
 from dateutil.tz import tzutc
 from ADSOrcid import importer
+import random
+
 
 class OrcidImporter(GenericWorker.RabbitMQWorker):
     """
@@ -227,6 +229,7 @@ class OrcidImporter(GenericWorker.RabbitMQWorker):
                     seek_ids = sorted(seek_ids, key=lambda x: x[0], reverse=True)
                     for _priority, fvalue in seek_ids:
                         try:
+                            time.sleep(1.0/random.randint(1, 20)) # be nice to the api
                             metadata = updater.retrieve_metadata(fvalue, search_identifiers=True)
                             bibc = metadata.get('bibcode')
                             self.logger.info('Match found {0} -> {1}'.format(fvalue, bibc))

@@ -71,7 +71,7 @@ WORKERS = {
         'durable': True
     },
     'ClaimsRecorder': {
-        'concurrency': 1,
+        'concurrency': 5,
         'subscribe': 'ads.orcid.updates',
         'publish': 'ads.orcid.output',
         'error': 'ads.orcid.error',

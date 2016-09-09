@@ -6,7 +6,7 @@ import json
 import cachetools
 import time
 from copy import deepcopy
-
+from .exceptions import IgnorableException
 """
 Tools for enhancing our knowledge about orcid ids (authors).
 """
@@ -119,7 +119,9 @@ def create_orcid(orcid, name=None, facts=None):
     # retrieve profile from our own orcid microservice
     if not name or not facts:
         profile = harvest_author_info(orcid, name, facts)
-        name = name or profile['name']
+        name = name or profile.get('name', None)
+        if not name:
+            raise IgnorableException('Cant find an author name for orcid-id: {}'.format(orcid))
         facts = profile
 
     return AuthorInfo(orcidid=orcid, name=name, facts=json.dumps(facts), account_id=facts.get('authorized', None) and 1 or None)
