@@ -3,6 +3,7 @@ from .. import app
 from copy import deepcopy
 from .exceptions import ProcessingException
 
+
 class OutputHandler(GenericWorker.RabbitMQWorker):
     """
     This GenericWorker will forward results to the outside 
@@ -69,8 +70,9 @@ class OutputHandler(GenericWorker.RabbitMQWorker):
         if not authors:
             raise ProcessingException('{0} has no authors in the mongodb'.format(bibcode))
         
-        if claim['authors'] != authors: #TODO: make less stringent
-            self.logger.warning('The authors as retrieved from MongoDB differ!. {0} : {1}'
+        if claim['authors'] != authors:
+            if self._authors_differ(authors, claim['authors']):
+                self.logger.warning('The authors as retrieved from MongoDB differ!. {0} : {1}'
                                 .format(claim['authors'], authors))
         
         # find existing claims (if any)
@@ -82,5 +84,25 @@ class OutputHandler(GenericWorker.RabbitMQWorker):
             mongocoll.insert_one(cl)
         else:
             mongocoll.replace_one({'_id': bibcode}, claim['claims'])
-        
-        
+            
+    
+    def _normalize(self, v):
+        out = []
+        for x in v:
+            if x.isalpha():
+                out.append(x.lower())
+        return u''.join(out)
+    
+    def _authors_differ(self, canonical, claim):
+        if len(canonical) != len(claim):
+            return True
+        normalize = self._normalize
+        for v, w in zip(canonical, claim):
+            v = normalize(v)
+            w = normalize(w)
+            if len(v) > len(w):
+                v, w = w, v
+            if v not in w:
+                return True
+        return False
+            

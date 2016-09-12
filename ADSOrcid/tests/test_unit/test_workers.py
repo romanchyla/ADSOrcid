@@ -20,7 +20,7 @@ from mock import patch
 from ADSOrcid.tests import test_base
 from ADSOrcid import app, importer
 from ADSOrcid.pipeline import workers
-from ADSOrcid.pipeline.workers import OrcidImporter
+from ADSOrcid.pipeline.workers import OrcidImporter, OutputHandler
 from ADSOrcid.models import AuthorInfo, ClaimsLog, Records, Base, KeyValue
 
 class TestWorkers(test_base.TestUnit):
@@ -178,7 +178,16 @@ class TestWorkers(test_base.TestUnit):
                 {'status': u'unchanged', 'bibcode': u'2015arXiv150304194A', 'created': '2015-09-16T10:59:01.721000+00:00', u'provenance': 'OrcidImporter', 'orcidid': u'0000-0003-3041-2092', 'id': 16},
                 {'status': u'unchanged', 'bibcode': u'2015AAS...22533655A', 'created': '2015-09-16T10:59:01.721000+00:00', u'provenance': 'OrcidImporter', 'orcidid': u'0000-0003-3041-2092', 'id': 17}
                 ])
-
+    
+    def test_author_differ(self):
+        worker = OutputHandler.OutputHandler()
+        r = worker._authors_differ([u'Mishra, R. K.', u'Goswami, J. N.', u'Tachibana, S.', u'Huss, G. R.', u'Rudraswami, N. G.'],
+                               [u'Mishra, R', u'Goswami, J', u'Tachibana, S', u'Huss, G', u'Rudraswami, N'])
+        self.assertEqual(r, False, "Too strict comparison")
+        
+        r = worker._authors_differ([u'Mishra, K. R.', u'Goswami, J. N.', u'Tachibana, S.', u'Huss, G. R.', u'Rudraswami, N. G.'],
+                               [u'Mishra, R', u'Goswami, J', u'Tachibana, S', u'Huss, G', u'Rudraswami, N'])
+        self.assertEqual(r, True, "Too lenient comparison")
 
 if __name__ == '__main__':
     unittest.main()        
