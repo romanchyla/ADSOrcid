@@ -179,7 +179,8 @@ class TestWorkers(test_base.TestUnit):
                 {'status': u'unchanged', 'bibcode': u'2015AAS...22533655A', 'created': '2015-09-16T10:59:01.721000+00:00', u'provenance': 'OrcidImporter', 'orcidid': u'0000-0003-3041-2092', 'id': 17}
                 ])
     
-    def test_author_differ(self):
+    @patch('ADSOrcid.pipeline.OutputHandler.OutputHandler.init_mongo', return_value=None)
+    def test_author_differ(self, patched):
         worker = OutputHandler.OutputHandler()
         r = worker._authors_differ([u'Mishra, R. K.', u'Goswami, J. N.', u'Tachibana, S.', u'Huss, G. R.', u'Rudraswami, N. G.'],
                                [u'Mishra, R', u'Goswami, J', u'Tachibana, S', u'Huss, G', u'Rudraswami, N'])
