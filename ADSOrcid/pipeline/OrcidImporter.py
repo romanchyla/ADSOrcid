@@ -29,6 +29,7 @@ class OrcidImporter(GenericWorker.RabbitMQWorker):
     """
     def __init__(self, params=None):
         super(OrcidImporter, self).__init__(params)
+        self.error_counter = 0
         app.init_app()
         self.start_cronjob()
         
@@ -55,6 +56,14 @@ class OrcidImporter(GenericWorker.RabbitMQWorker):
         
     def check_orcid_updates(self):
         """Checks the remote server for updates"""
+        
+        if self.error_counter:
+            sleep_time = max(self.error_counter ** app.config.get('API_ERROR_EXPONENT', 2), 
+                             app.config.get('API_ERROR_MAX_SLEEP', 300))
+            self.logger.error('Error counter value is {}, forcing sleep for {} secs'.format(
+                         self.error_counter, sleep_time))
+            time.sleep(sleep_time)
+        
         with app.session_scope() as session:
             kv = session.query(KeyValue).filter_by(key='last.check').first()
             if kv is None:
@@ -77,6 +86,7 @@ class OrcidImporter(GenericWorker.RabbitMQWorker):
                     self.logger.error('Failed getting {0}\n{1}'.format(
                                 app.config.get('API_ORCID_UPDATES_ENDPOINT') % kv.value,
                                 r.text))
+                    self.error_counter += 1
                     return False
                 
                 if r.text.strip() == "":
@@ -88,6 +98,9 @@ class OrcidImporter(GenericWorker.RabbitMQWorker):
                 
                 if len(data) == 0:
                     return False
+                
+                # reset the error-counter, we got data from the api
+                self.error_counter = 0
                 
                 # data should be ordered by date update (but to be sure, let's check it); we'll save it
                 # as latest 'check point'
