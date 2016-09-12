@@ -6,7 +6,7 @@ from .utils import get_date
 
 import datetime
 
-ALLOWED_STATUS = set(['claimed', 'updated', 'removed', 'unchanged', '#full-import'])
+ALLOWED_STATUS = set(['claimed', 'updated', 'removed', 'unchanged', 'forced', '#full-import'])
 
 
 """

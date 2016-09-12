@@ -22,6 +22,7 @@ from ADSOrcid import app
 from ADSOrcid.pipeline import workers, GenericWorker
 from ADSOrcid.utils import setup_logging
 from copy import deepcopy
+from threading import Thread
 
 
 logger = setup_logging(os.path.abspath(os.path.join(__file__, '..')), __name__)
@@ -62,8 +63,9 @@ class TaskMaster(Singleton):
         self.rabbitmq_routes = deepcopy(rabbitmq_routes)
         self.workers = deepcopy(workers)
         self.running = False
+        self.initialize_rabbitmq()
 
-    def quit(self, os_signal, frame):
+    def quit(self, os_signal=None, frame=None):
         """
         Stops all RabbitMQ workers when it receives a SIGTERM or other type of
         SIGKILL from the OS
@@ -164,7 +166,7 @@ class TaskMaster(Singleton):
 
 
     def poll_loop(self, poll_interval=60, ttl=7200,
-                  extra_params=False):
+                  extra_params=False, verbose=False):
         """
         Starts all of the workers connecting and consuming to the queue. It then
         continually polls the workers to ensure that the correct number exists,
@@ -175,32 +177,45 @@ class TaskMaster(Singleton):
         :param extra_params: other parameters
         :return: no return
         """
-
-        while self.running:
-
-            time.sleep(poll_interval)
-            for worker, params in self.workers.iteritems():
-                for active in params['active']:
-                    if not active['proc'].is_alive():
-
-                        logger.debug('{0} is not alive, restarting: {1}'.format(
-                            active['proc'], worker))
-                        if hasattr(active['proc'], 'terminate'):
-                            active['proc'].terminate()
-                        active['proc'].join()
-                        if not active['proc'].is_alive():
-                            params['active'].remove(active)
-                        continue
-                    if ttl:
-                        if time.time()-active['start'] > ttl:
+        self = self # to make pylint happy
+        self.running = True
+        
+        def check_pool():
+            
+            self.start_workers(verbose=verbose, extra_params=extra_params)
+            
+            while self.running:
+                time.sleep(poll_interval/2)                
+                for worker, params in self.workers.iteritems():
+                    for active in params['active']:
+                        if ttl and time.time()-active['start'] > ttl:
                             logger.debug('time to live reached')
                             if hasattr(active['proc'], 'terminate'):
                                 active['proc'].terminate()
-                            active['proc'].join()
-                            active['proc'].is_alive()
+                            active['proc'].join(0.3)
+                        if not active['proc'].is_alive():
+                            logger.debug('{0} is not alive, restarting: {1}'.format(
+                                active['proc'], worker))
+                            if hasattr(active['proc'], 'terminate'):
+                                active['proc'].terminate()
                             params['active'].remove(active)
+                time.sleep(poll_interval/2)
+                self.start_workers(verbose=verbose, extra_params=extra_params)
 
-            self.start_workers(verbose=False, extra_params=extra_params)
+        def quit():
+            self.quit()
+            
+        # Define the SIGTERM handler
+        if isinstance(threading.current_thread(), threading._MainThread):
+            signal.signal(signal.SIGTERM, quit)
+        poll_thread = Thread(target=check_pool)
+        poll_thread.start()
+        poll_thread.join()
+        
+        
+        
+        
+
 
     def start_workers(self, verbose=True, extra_params=False):
         """
@@ -211,8 +226,23 @@ class TaskMaster(Singleton):
         :param extra_params: other parameters
         :return: no return
         """
-
+        
+        class WorkerThread(threading.Thread):
+            def __init__(self, worker, *args, **kwargs):
+                threading.Thread.__init__(self, *args, **kwargs)
+                self._worker = worker
+            def run(self):
+                self._worker = self._worker()
+                self._worker.run()
+            def terminate(self):
+                self._worker.terminate()
+            
         for worker, params in self.workers.iteritems():
+            
+            conc = params.get('concurrency', 1)
+            if len(params.get('active', [])) >= conc:
+                continue
+            
             logger.debug('Starting worker: {0}'.format(worker))
             params['active'] = params.get('active', [])
             params['RABBITMQ_URL'] = self.rabbitmq_url
@@ -225,17 +255,14 @@ class TaskMaster(Singleton):
     
                     params[par] = extra_params[par]
             
-            conc = params.get('concurrency', 1)
             while len(params['active']) < conc:
-                w = eval('workers.{0}.{0}'.format(worker))(params)
+                w = lambda: eval('workers.{0}.{0}'.format(worker))(params)
                 
                 # decide if we want to run it multiprocessing
-                if conc > 1:
-                    process = multiprocessing.Process(target=w.run)
-                else:
-                    process = threading.Thread(target=w.run, args=())
+                # process = multiprocessing.Process(target=w.run)
+                process = WorkerThread(w)
                 
-                process.daemon = True
+                #process.daemon = True
                 process.start()
 
                 if verbose:
@@ -249,16 +276,29 @@ class TaskMaster(Singleton):
             logger.debug('Successfully started: {0}'.format(
                 len(params['active'])))
 
-        self.running = True
 
-    def stop_workers(self):
+    def stop_workers(self, waittime=2):
         """
-        Stops the workers. Currently it does nothing as closing the main process
-        should gracefully clean up each daemon process.
+        Stops the running workers.
 
         :return: no return
         """
-        pass
+        self.running = False
+        for worker, params in self.workers.iteritems():
+            if 'active' in params:
+                for active in params['active']:
+                    if active['proc'].is_alive():
+                        logger.debug('{0} is alive, stopping: {1}'.format(
+                            active['proc'], worker))
+                        if hasattr(active['proc'], 'terminate'):
+                            active['proc'].terminate()
+        time.sleep(waittime)
+        for worker, params in self.workers.iteritems():
+            for active in params.get('active', []):
+                active['proc'].join(0.01)
+                if active['proc'].is_alive():
+                    logger.error('Process is still alive (despite termination): {}'.format(active))
+                params['active'].remove(active)
 
 
 def start_pipeline(params_dictionary=False, application=None):
@@ -277,12 +317,6 @@ def start_pipeline(params_dictionary=False, application=None):
                     app.config.get('EXCHANGE'),
                     app.config.get('QUEUES', None),
                     app.config.get('WORKERS'))
-
-    task_master.initialize_rabbitmq()
-    task_master.start_workers(extra_params=params_dictionary)
-
-    # Define the SIGTERM handler
-    signal.signal(signal.SIGTERM, task_master.quit)
 
     # Start the main process in a loop
     task_master.poll_loop(extra_params=params_dictionary, 

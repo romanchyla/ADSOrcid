@@ -18,7 +18,9 @@ import math
 import httpretty
 import mock
 from io import BytesIO
- 
+from datetime import datetime
+
+from ADSOrcid.utils import get_date 
 from ADSOrcid.tests import test_base
 from ADSOrcid import matcher, app, updater, importer, utils
 from ADSOrcid.models import AuthorInfo, ClaimsLog, Records, Base, ChangeLog
@@ -77,7 +79,7 @@ class TestMatcherUpdater(test_base.TestUnit):
         rec = Records(bibcode='foo', created='2009-09-03T20:56:35.450686Z')
 
         self.assertDictEqual(rec.toJSON(),
-             {'bibcode': 'foo', 'created': '2009-09-03T20:56:35.450686+00:00', 'updated': None, 'processed': None, 'claims': {}, 'id': None, 'authors': {}})
+             {'bibcode': 'foo', 'created': '2009-09-03T20:56:35.450686+00:00', 'updated': None, 'processed': None, 'claims': {}, 'id': None, 'authors': []})
         
         with self.assertRaisesRegexp(Exception, 'IntegrityError'):
             with app.session_scope() as session:
@@ -100,7 +102,23 @@ class TestMatcherUpdater(test_base.TestUnit):
             with app.session_scope() as session:
                 session.add(ClaimsLog(bibcode='foo'+s, orcidid='bar', status=s))
                 session.commit()
-    
+                
+    def test_dates(self):
+        '''We want to use only UTC dates'''
+        
+        with self.assertRaisesRegexp(Exception, 'ValueError'):
+            with app.session_scope() as session:
+                rec = Records(bibcode='foo', created='2009-09-03T20:56:35.450686Z')
+                session.add(rec)
+                rec.updated = datetime.now()
+                session.commit()
+
+        with app.session_scope() as session:
+            rec = Records(bibcode='foo', created='2009-09-03T20:56:35.450686Z')
+            session.add(rec)
+            rec.updated = get_date()
+            session.commit()
+
     @httpretty.activate
     def test_harvest_author_info(self):
         """
@@ -134,7 +152,8 @@ class TestMatcherUpdater(test_base.TestUnit):
                                     'authorized': True,
                                     'author_norm': [u'Stern, D'],
                                     'current_affiliation': u'ADS',
-                                    'name': u'Stern, D K'
+                                    'name': u'Stern, D K',
+                                    'short_name': ['Stern, A', 'Stern, A D', 'Stern, D', 'Stern, D K']
                                     })
         
     
@@ -274,9 +293,10 @@ class TestMatcherUpdater(test_base.TestUnit):
               "Mori, Kaya",
               "Stern, Daniel",
               "Zhang, William W."
-            ]
+            ],
+            'claims': {}
         }
-        updater.update_record(
+        r = updater.update_record(
           doc,
           {
            'bibcode': '2015ApJ...799..123B', 
@@ -288,7 +308,8 @@ class TestMatcherUpdater(test_base.TestUnit):
            'name': u'Stern, D K' 
           }                          
         )
-        self.assertEqual(doc['verified'], 
+        self.assertEqual(r, ('verified', 12))
+        self.assertEqual(doc['claims']['verified'], 
             ['-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '0000-0003-2686-9241', '-'])
         
         updater.update_record(
@@ -304,10 +325,30 @@ class TestMatcherUpdater(test_base.TestUnit):
            'status': 'removed'
           }                          
         )
-        self.assertEqual(doc['verified'], 
+        self.assertEqual(doc['claims']['verified'], 
             ['-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-'])
         
+        # the size differs
+        doc['claims']['verified'] = ['-']
+        r = updater.update_record(
+          doc,
+          {
+           'bibcode': '2015ApJ...799..123B', 
+           'orcidid': '0000-0003-2686-9241',
+           'account_id': '1',
+           'orcid_name': [u'Stern, Daniel'],
+           'author': [u'Stern, D', u'Stern, D K', u'Stern, Daniel'],
+           'author_norm': [u'Stern, D'],
+           'name': u'Stern, D K' 
+          }                          
+        )
+        self.assertEqual(r, ('verified', 12))
+        self.assertEqual(doc['claims']['verified'], 
+            ['-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '0000-0003-2686-9241', '-'])
         
+        self.assertEqual(14, len(doc['claims']['verified']))
+        
+
     def test_find_author_position(self):
         """
         Given the ORCID ID, and information about author name, 
@@ -346,7 +387,21 @@ class TestMatcherUpdater(test_base.TestUnit):
                ], 
               ["Accomazzi, Alberto"]);
         self.assertEqual(res, -1)
-
+        
+        # check boundaries
+        res = updater.find_orcid_position([
+               "Erdmann, Christopher",
+               "Frey, Katie"
+               ], 
+              ["Erdmann, C"]);
+        self.assertEqual(res, 0)
+        res = updater.find_orcid_position([
+               "Erdmann, Christopher",
+               "Cote, Ann",
+               "Frey, Katie"
+               ], 
+              ["Frey, Katie"]);
+        self.assertEqual(res, 2)
 
     def test_update_database(self):
         """Inserts a record (of claims) into the database"""
@@ -419,6 +474,15 @@ class TestMatcherUpdater(test_base.TestUnit):
         
         self.assertTrue(len(self.app.session.query(ClaimsLog)
                             .filter_by(bibcode='b123456789123456789').all()) == 3)
+        
+    def test_build_short_forms(self):
+        """Get name variants"""
+        self.assertEquals(matcher._build_short_forms('porceddu,'), [])
+        self.assertEquals(matcher._build_short_forms('porceddu, i'), [])
+        self.assertEquals(matcher._build_short_forms('porceddu, i. enrico pietro'),
+                          ['porceddu, i enrico p', 'porceddu, i e pietro', 'porceddu, i e', 'porceddu, i', 'porceddu, i e p'])
+        self.assertEquals(matcher._build_short_forms('porceddu, ignazio enrico pietro'),
+                          ['porceddu, ignazio enrico p', 'porceddu, i e', 'porceddu, i enrico pietro', 'porceddu, i', 'porceddu, ignazio e pietro', 'porceddu, i e p'])
         
 if __name__ == '__main__':
     unittest.main()

@@ -5,33 +5,56 @@ Library for updating papers (db claims/records).
 
 import Levenshtein
 from . import matcher
+from .exceptions import IgnorableException
 import app
 import json
 from .models import Records
 from .utils import get_date
-import datetime
 from ADSOrcid.models import ClaimsLog
 from app import config
 from sqlalchemy.sql.expression import and_
 import requests
 import cachetools
 import time
+from datetime import timedelta
 
-bibcode_cache = cachetools.TTLCache(maxsize=1024, ttl=3600, timer=time.time, missing=None, getsizeof=None)
+bibcode_cache = cachetools.TTLCache(maxsize=2048, ttl=3600, timer=time.time, missing=None, getsizeof=None)
 
 @cachetools.cached(bibcode_cache) 
-def retrieve_metadata(bibcode):
+def retrieve_metadata(bibcode, search_identifiers=False):
     """
     From the API retrieve the set of metadata we want to know about the record.
     """
+    params={
+            'q': search_identifiers and 'identifier:"{0}"'.format(bibcode) or 'bibcode:"{0}"'.format(bibcode),
+            'fl': 'author,bibcode,identifier'
+            }
     r = requests.get(config.get('API_SOLR_QUERY_ENDPOINT'),
-         params={'q': 'bibcode:"{0}"'.format(bibcode),
-                 'fl': 'authors,bibcode'},
-         headers={'Accept': 'application/json'})
+         params=params,
+         headers={'Accept': 'application/json', 'Authorization': 'Bearer:%s' % config.get('API_TOKEN')})
     if r.status_code != 200:
-        return None
+        raise Exception('{}\n{}\n{}'.format(r.status_code, params, r.text))
     else:
-        return r.json()
+        data = r.json().get('response', {})
+        if data.get('numFound') == 1:
+            docs = data.get('docs', [])
+            return docs[0]
+        elif data.get('numFound') == 0:
+            if search_identifiers:
+                bibcode_cache.setdefault(bibcode, {}) # insert to prevent failed retrievals
+                raise IgnorableException(u'No metadata found for identifier:{0}'.format(bibcode))
+            else:
+                return retrieve_metadata(bibcode, search_identifiers=True)
+        else:
+            if data.get('numFound') > 10:
+                raise IgnorableException(u'Insane num of results for {0} ({1})'.format(bibcode, data.get('numFound')))
+            docs = data.get('docs', [])
+            for d in docs:
+                for ir in d.get('identifier', []):
+                    if ir.lower().strip() == bibcode.lower().strip():
+                        return d
+            raise IgnorableException(u'More than one document found for {0}'.format(bibcode))
+        
 
 
 def retrieve_record(bibcode):
@@ -44,39 +67,55 @@ def retrieve_record(bibcode):
             r = Records(bibcode=bibcode)
             session.add(r)
         out = r.toJSON()
+        
+        metadata = retrieve_metadata(bibcode)
+        authors = metadata.get('author', [])
+        
+        if out.get('authors') != authors:
+            r.authors = json.dumps(authors)
+            out['authors'] = authors
+        
         session.commit()
         return out
 
 
-def record_claims(bibcode, claims):
+def record_claims(bibcode, claims, authors=None):
     """
-    Stores results of the processing in the database (this is purely
-    for book-keeping purposes; and should happen after the data was
-    written to the pipeline. However, in the future we can use these
-    records to build the document for indexing
+    Stores results of the processing in the database.
     
     :param: bibcode
     :type: string
-    :param: claims, as stored in the mongo
+    :param: claims
     :type: dict
     """
+    
+    if not isinstance(claims, basestring):
+        claims = json.dumps(claims)
+    if authors and not isinstance(authors, basestring):
+        authors = json.dumps(authors)
+        
     with app.session_scope() as session:
         if not isinstance(claims, basestring):
             claims = json.dumps(claims)
         r = session.query(Records).filter_by(bibcode=bibcode).first()
         if r is None:
             t = get_date()
-            r = Records(bibcode=bibcode, claims=claims, 
+            r = Records(bibcode=bibcode, 
+                        claims=claims, 
                         created=t,
                         updated=t,
+                        authors=authors
                         )
             session.add(r)
         else:
-            r.updated = datetime.datetime.now()
+            r.updated = get_date()
             r.claims = claims
+            if authors:
+                r.authors = authors
             session.merge(r)
         session.commit()
-        
+
+
 def mark_processed(bibcode):
     """Updates the date on which the record has been processed (i.e.
     something has consumed it
@@ -90,18 +129,20 @@ def mark_processed(bibcode):
     with app.session_scope() as session:
         r = session.query(Records).filter_by(bibcode=bibcode).first()
         if r is None:
-            raise Exception('Nonexistant record for {0}'.format(bibcode))
+            raise IgnorableException('Nonexistant record for {0}'.format(bibcode))
         r.processed = get_date()
         session.commit()
         return True        
 
+
 def update_record(rec, claim):
     """
-    update the ADS Document; we'll add ORCID information into it 
+    update the ADS Record; we'll add ORCID information into it 
     (at the correct position)
     
     :param: rec - JSON structure, it contains metadata; we expect
-            it to have 'author' field
+            it to have 'authors' field, and 'claims' field
+            
     :param: claim - JSON structure, it contains claim data, 
             especially:
                 orcidid
@@ -110,35 +151,60 @@ def update_record(rec, claim):
             We use those field to find out which author made the
             claim.
     
-    :return: None - it updates the `rec` directly
+    :return: tuple(clain_category, position) or None if no record
+        was updated
     """
     assert(isinstance(rec, dict))
     assert(isinstance(claim, dict))
     assert('authors' in rec)
+    assert('claims' in rec)
     assert(isinstance(rec['authors'], list))
     
-    fld_name = 'unverified'
+    claims = rec.get('claims', {})
+    rec['claims'] = claims
+    authors = rec.get('authors', [])
+    
+    # make sure the claims have the necessary structure
+    fld_name = u'unverified'
     if 'account_id' in claim and claim['account_id']: # the claim was made by ADS verified user
-        fld_name = 'verified'
+        fld_name = u'verified'
     
-    num_authors = len(rec['authors'])
+    num_authors = len(authors)
     
-    if fld_name not in rec or rec[fld_name] is None:
-        rec[fld_name] = ['-'] * num_authors
-    elif len(rec[fld_name]) < num_authors: # check the lenght is correct
-        rec[fld_name] += ['-'] * (len(rec[fld_name]) - num_authors)
-    
+    if fld_name not in claims or claims[fld_name] is None:
+        claims[fld_name] = ['-'] * num_authors
+    elif len(claims[fld_name]) < num_authors: # check the lenght is correct
+        claims[fld_name] += ['-'] * (num_authors - len(claims[fld_name]))
+
+    # always remove the orcidid
+    modified = False    
+    orcidid = claim['orcidid']
+    for v in claims.values():
+        while orcidid in v:
+            v[v.index(orcidid)] = '-'
+            modified = True
+            
     # search using descending priority
-    for fx in ('author', 'orcid_name', 'author_norm'):
+    for fx in ('author', 'orcid_name', 'author_norm', 'short_name'):
         if fx in claim and claim[fx]:
             
             assert(isinstance(claim[fx], list))
-            
             idx = find_orcid_position(rec['authors'], claim[fx])
-            if idx > -1:
-                rec[fld_name][idx] = claim.get('status', 'created') == 'removed' and '-' or claim['orcidid']
-                return idx
-
+            if idx > -1:              
+                if idx >= num_authors:
+                    app.logger.error(u'Index is beyond list boundary: \n' + 
+                                     u'Field {fx}, author {author}, len(authors)={la}, len({fx})=lfx'
+                                     .format(
+                                       fx=fx, author=claim[fx], la=num_authors, lfx=len(claim[fx])
+                                       )
+                                     )
+                    continue
+                
+                claims[fld_name][idx] = claim.get('status', 'created') == 'removed' and '-' or orcidid
+                return (fld_name, idx)
+    
+    if modified:
+        return ('removed', -1)
 
 def find_orcid_position(authors_list, name_variants):
     """
@@ -171,8 +237,20 @@ def find_orcid_position(authors_list, name_variants):
         return -1
     
     if res[0][0] < app.config.get('MIN_LEVENSHTEIN_RATIO', 0.9):
-        app.logger.debug('No match found: the closest is: %s (required:%s)' \
-                        % (res[0], app.config.get('MIN_LEVENSHTEIN_RATIO', 0.9)))
+        # test submatch (0.6470588235294118, 19, 0) (required:0.69) closest: vernetto, s, variant: vernetto, silvia teresa
+        author_name = al[res[0][1]]
+        variant_name = nv[res[0][2]]
+        if author_name in variant_name or variant_name in author_name:
+            app.logger.debug(u'Using submatch for: %s (required:%s) closest: %s, variant: %s' \
+                        % (res[0], app.config.get('MIN_LEVENSHTEIN_RATIO', 0.9), 
+                           unicode(author_name, 'utf-8'), 
+                           unicode(variant_name, 'utf-8')))
+            return res[0][1]
+            
+        app.logger.debug(u'No match found: the closest is: %s (required:%s) closest: %s, variant: %s' \
+                        % (res[0], app.config.get('MIN_LEVENSHTEIN_RATIO', 0.9), 
+                           unicode(author_name, 'utf-8'), 
+                           unicode(variant_name, 'utf-8')))
         return -1
     
     return res[0][1]
@@ -191,9 +269,9 @@ def _remove_orcid(rec, orcidid):
             modified = True
     return modified
 
-def reindex_all_claims(orcidid, since=None):
+def reindex_all_claims(orcidid, since=None, ignore_errors=False):
     """
-    Procedure that will re-discover and re-index all claims
+    Procedure that will re-play all claims
     that were modified since a given starting point.
     """
     
@@ -207,11 +285,11 @@ def reindex_all_claims(orcidid, since=None):
         for claim in session.query(ClaimsLog).filter(
                         and_(ClaimsLog.orcidid == orcidid, ClaimsLog.created > last_check)
                         ).all():
-            if claim.status == 'claimed' or claim.status == 'updated':
+            if claim.status in ('claimed', 'updated', 'forced'):
                 claimed.add(claim.bibcode)
             elif claim.status == 'removed':
                 removed.add(claim.bibcode)
-            
+
         with app.session_scope() as session:    
             for bibcode in removed:
                 r = session.query(Records).filter_by(bibcode=bibcode).first()
@@ -220,24 +298,29 @@ def reindex_all_claims(orcidid, since=None):
                 rec = r.toJSON()
                 if _remove_orcid(rec, orcidid):
                     r.claims = json.dumps(rec.claims)
-                    r.processed = get_date()
+                    r.updated = get_date()
                     recs_modified.add(bibcode)
-                    session.merge(r)
         
             for bibcode in claimed:
                 r = session.query(Records).filter_by(bibcode=bibcode).first()
                 if r is None:
                     continue
                 rec = r.toJSON()
-                modified = _remove_orcid(rec, orcidid) # always remove orcid, if any
+
                 claim = {'bibcode': bibcode, 'orcidid': orcidid}
-                claim.update(author.facts)
-                idx = update_record(rec, claim)
-                if idx > -1 or modified:
-                    r.claims = json.dumps(rec.claims)
-                    r.processed = get_date()
-                    recs_modified.add(bibcode)
-                    session.merge(r)
+                claim.update(author.get('facts', {}))
+                try:
+                    _claims = update_record(rec, claim)
+                    if _claims:
+                        r.claims = json.dumps(rec.get('claims', {}))
+                        r.updated = get_date()
+                        recs_modified.add(bibcode)
+                except Exception, e:
+                    if ignore_errors:
+                        app.logger.error(u'Error processing {0} {1}'.format(bibcode, orcidid))
+                    else:
+                        raise e
+                    
                     
             session.commit()
         
@@ -253,7 +336,7 @@ def get_all_touched_profiles(since='1974-11-09T22:56:52.518001Z'):
         
     while True:
         # increase the timestamp by one microsec and get new updates
-        latest_point = latest_point + datetime.timedelta(microseconds=1)
+        latest_point = latest_point + timedelta(microseconds=1)
         r = requests.get(app.config.get('API_ORCID_UPDATES_ENDPOINT') % latest_point.isoformat(),
                     params={'fields': ['orcid_id', 'updated', 'created']},
                     headers = {'Authorization': 'Bearer {0}'.format(app.config.get('API_TOKEN'))})

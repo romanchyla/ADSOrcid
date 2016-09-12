@@ -10,10 +10,15 @@ It then shuts down all of the workers.
 import unittest
 import time
 import json
+import mock
+import signal
 from ADSOrcid.tests import test_base
 from ADSOrcid.pipeline import workers, GenericWorker
 from ADSOrcid import app, models
 import subprocess
+import threading
+import os
+import random
 
 class TestPipeline(test_base.TestFunctional):
     """
@@ -27,8 +32,87 @@ class TestPipeline(test_base.TestFunctional):
     API_TOKEN = '.......'
 
     """
+    
+    def test_start_stop(self):
+        """Check that workers get restarted."""
+        
+        self.app.config['ORCID_CHECK_FOR_CHANGES'] = 1
+        
+        def start():
+            self.TM.poll_loop(poll_interval=0.1)
+        
+        starter = threading.Thread(target=start)
+        starter.start()
+        
+        time.sleep(1)
+        
+        for worker, params in self.TM.workers.iteritems():
+            for x in params.get('active', []):
+                self.assertTrue(x['proc'].is_alive(), "Not alive: {}".format(worker))
+        
+        self.TM.stop_workers()
+        
+        time.sleep(6)
+        for worker, params in self.TM.workers.iteritems():
+            for x in params.get('active', []):
+                self.assertFalse(x['proc'].is_alive())
 
-    def test_forwarding(self):
+
+    def test_worker_restart(self):
+        """Check that workers are kept up (if we kill some of them)."""
+        
+        self.app.config['ORCID_CHECK_FOR_CHANGES'] = 1
+        
+        def start():
+            self.TM.poll_loop(poll_interval=0.1)
+        
+        starter = threading.Thread(target=start)
+        starter.start()
+        
+        time.sleep(1)
+        
+        for worker, params in self.TM.workers.iteritems():
+            for x in params.get('active', []):
+                self.assertTrue(x['proc'].is_alive(), "Not alive: {}".format(worker))
+        
+        i = random.randint(0, len(self.TM.workers))
+        worker, params = self.TM.workers.items()[i]
+        for x in params.get('active', []):
+            x['proc'].terminate()
+
+        time.sleep(1)
+        for worker, params in self.TM.workers.iteritems():
+            for x in params.get('active', []):
+                self.assertTrue(x['proc'].is_alive())
+        
+    
+    def test_worker_restart_ttl(self):
+        """Check that workers are kept up (if we kill some of them)."""
+        
+        self.app.config['ORCID_CHECK_FOR_CHANGES'] = 1
+        
+        def start():
+            self.TM.poll_loop(poll_interval=0.1, ttl=2)
+        
+        starter = threading.Thread(target=start)
+        starter.start()
+        
+        time.sleep(1)
+        
+        for worker, params in self.TM.workers.iteritems():
+            for x in params.get('active', []):
+                self.assertTrue(x['proc'].is_alive(), "Not alive: {}".format(worker))
+                x['foo'] = str(x['proc'])
+        
+        time.sleep(5)
+        
+        for worker, params in self.TM.workers.iteritems():
+            for x in params.get('active', []):
+                self.assertTrue(x['proc'].is_alive(), "Not alive: {} {}".format(worker, x))
+                self.assertTrue(x.get('foo', '') != str(x['proc']), 
+                        'Thread survived: {} {}'.format(worker, x['proc']))
+
+    def test_output_handler(self):
         """Check the remote queue can receive a message from us
         
             You need to have `vagrant up imp` running
@@ -38,6 +122,13 @@ class TestPipeline(test_base.TestFunctional):
         
         worker = workers.OutputHandler.OutputHandler(params=app.config.get('WORKERS').get('OutputHandler'))
         worker.connect(app.config.get('RABBITMQ_URL'))
+        
+        # clean up
+        worker.mongodb['authors'].remove({'_id': 'bibcode'})
+        worker.mongodb[self.app.config.get('MONGODB_COLL', 'orcid_claims')].remove({'_id': 'bibcode'})
+        
+        # a test record
+        worker.mongodb['authors'].insert({'_id': 'bibcode', 'authors': ['Huchra, J', 'Einstein, A', 'Neumann, John']})
         
         # crude way of testing stuf
         init_state = subprocess.check_output('docker exec rabbitmq rabbitmqctl list_queues', shell=True)
@@ -50,8 +141,13 @@ class TestPipeline(test_base.TestFunctional):
         
         for x in range(100):
             worker.process_payload({
-                                u'bibcode': u'2014ATel.6427....1V', 
-                                u'unverified': [u'0000-0003-3455-5082', u'-', u'-', u'-', u'0000-0001-6347-0649']})
+                                u'bibcode': u'bibcode', 
+                                u'claims': {u'unverified': [u'0000-0003-3455-5082', u'-', u'-', u'-', u'0000-0001-6347-0649']},
+                                u'authors': ['Huchra, J', 'Einstein, A', 'Neumann, John']
+                                })
+            
+            v = worker.mongodb[self.app.config.get('MONGODB_COLL', 'orcid_claims')].find_one({'_id': 'bibcode'})
+            self.assertEquals(v['unverified'], [u'0000-0003-3455-5082', u'-', u'-', u'-', u'0000-0001-6347-0649'])
         
         # crude way of testing stuff
         fin_state = subprocess.check_output('docker exec rabbitmq rabbitmqctl list_queues', shell=True)
@@ -63,40 +159,7 @@ class TestPipeline(test_base.TestFunctional):
         fin_val = int(fin_state[init_state.index('SolrUpdateQueue') + 1])
         self.assertGreater(fin_val, init_val, 'Hmm, seems like we failed to register updates to SolrUpdateQueue')
         
-
-    def test_mongodb_worker(self):
-        """Check we can write into the mongodb; for this test
-        you have to have the 'db' container running: vagrant up db
-        """
-        
-        worker = workers.MongoUpdater.MongoUpdater()
-        
-        # clean up
-        worker.mongodb['authors'].remove({'_id': 'bibcode'})
-        worker.mongodb[self.app.config.get('MONGODB_COLL', 'orcid_claims')].remove({'_id': 'bibcode'})
-        
-        # a test record
-        worker.mongodb['authors'].insert({'_id': 'bibcode', 'authors': ['Huchra, J', 'Einstein, A', 'Neumann, John']})
-        
-        v = worker.process_payload({'bibcode': 'bibcode',
-            'orcidid': 'foobar',
-            'author_name': 'Neumann, John Von',
-            'author': ['Neumann, John Von', 'Neumann, John V', 'Neumann, J V']
-            })
-        
-        self.assertTrue(v)
-        
-        v = worker.mongodb[self.app.config.get('MONGODB_COLL', 'orcid_claims')].find_one({'_id': 'bibcode'})
-        self.assertEquals(v['unverified'], [u'-', u'-', u'foobar'])
-        
-        v = worker.process_payload({'bibcode': 'bibcode',
-            'orcidid': 'foobaz',
-            'author_name': 'Huchra',
-            'author': ['Huchra', 'Huchra, Jonathan']
-            })
-        v = worker.mongodb[self.app.config.get('MONGODB_COLL', 'orcid_claims')].find_one({'_id': 'bibcode'})
-        self.assertEquals(v['unverified'], [u'foobaz', u'-', u'foobar'])
-
+    
 
     def test_functionality_on_new_claim(self):
         """
@@ -121,7 +184,7 @@ class TestPipeline(test_base.TestFunctional):
             kv.value = '2051-11-09T22:56:52.518001Z'
                 
         # setup/check the MongoDB has the proper data for authors
-        mworker = workers.MongoUpdater.MongoUpdater(params=app.config.get('WORKERS').get('MongoUpdater'))
+        mworker = workers.OutputHandler.OutputHandler(params=app.config.get('WORKERS').get('OutputHandler'))
         mworker.mongodb[self.app.config.get('MONGODB_COLL', 'orcid_claims')].remove({'_id': '2015ASPC..495..401C'})
         r = mworker.mongodb['authors'].find_one({'_id': '2015ASPC..495..401C'})
         if not r or 'authors' not in r:
@@ -157,13 +220,14 @@ class TestPipeline(test_base.TestFunctional):
         
         # check results
         claim = mworker.mongodb[self.app.config.get('MONGODB_COLL', 'orcid_claims')].find_one({'_id': '2015ASPC..495..401C'})
-        self.assertEquals(claim['unverified'],
+        self.assertTrue(claim)
+        self.assertEquals(claim['verified'],
                           ['0000-0003-3041-2092', '-','-','-','-','-','-','-','-','-', ] 
                           )
         
         with app.session_scope() as session:
             r = session.query(models.Records).filter_by(bibcode='2015ASPC..495..401C').first()
-            self.assertEquals(json.loads(r.claims)['unverified'],
+            self.assertEquals(json.loads(r.claims)['verified'],
                               ['0000-0003-3041-2092', '-','-','-','-','-','-','-','-','-', ] 
                               )
             

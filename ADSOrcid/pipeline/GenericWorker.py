@@ -3,7 +3,9 @@ import pika
 import sys
 import json
 import traceback
-
+from .exceptions import ProcessingException
+from ..exceptions import IgnorableException
+from pika.exceptions import ConnectionClosed
 class RabbitMQWorker(object):
     """
     Base worker class. Defines the plumbing to communicate with rabbitMQ
@@ -78,9 +80,10 @@ class RabbitMQWorker(object):
                     raise Exception('exchange must be specified for forwarding')
                     
             return True
-        except:
+        except Exception, e:
+            self.logger.error(traceback.format_exc())
             self.logger.error(sys.exc_info())
-            raise Exception(sys.exc_info())
+            raise e
 
 
     def publish_to_error_queue(self, message, exchange=None, routing_key=None,
@@ -200,23 +203,40 @@ class RabbitMQWorker(object):
 
         message = json.loads(body)
         try:
-            self.logger.debug('Running on message')
+            self.logger.debug(u'Running on message')
             self.results = self.process_payload(message, 
                                                 channel=channel, 
                                                 method_frame=method_frame, 
                                                 header_frame=header_frame)
-        except Exception, e:
-            self.results = 'Offloading to ErrorWorker due to exception:' \
-                           ' {0}'.format(e.message)
-
-            self.logger.warning('Offloading to ErrorWorker due to exception: '
-                                '{0} ({1})'.format(e.message,
+        except ProcessingException, e:
+            self.results = u'Offloading to ErrorWorker due to exception:' \
+                           u' {0}'.format(e.message)
+            
+            if isinstance(message, dict):
+                self.logger.warning(u'Offloading to ErrorWorker due to exception (bibcode={0}, orcidid={1})'
+                                u'{2} ({3})'.format(message.get('bibcode', '-'),
+                                                   message.get('orcidid', '-'),
+                                                   e.message,
+                                                   traceback.format_exc()))
+            else:
+                self.logger.warning(u'Offloading to ErrorWorker due to exception: '
+                                u'{0} ({1})'.format(e.message,
                                                    traceback.format_exc()))
 
             self.publish_to_error_queue(json.dumps(
-                {self.__class__.__name__: message}),
+                {self.__class__.__name__: message, 'error': e.message}),
                 header_frame=header_frame
             )
+        except IgnorableException, e:
+            self.logger.warning(u'Ignorable exception: {0}\n'
+                                u'({1})'.format(e.message,
+                                                   traceback.format_exc()))
+        except Exception, e:
+            self.logger.error(u'Unrecoverable exception: '
+                                u'{0} ({1})'.format(e.message,
+                                                   traceback.format_exc()))
+            self.terminate()
+            raise e
 
         # Send delivery acknowledgement
         self.channel.basic_ack(delivery_tag=method_frame.delivery_tag)
@@ -231,3 +251,19 @@ class RabbitMQWorker(object):
 
         self.connect(self.params['RABBITMQ_URL'])
         self.subscribe(self.on_message)
+        
+    def terminate(self):
+        """Stops the worker."""
+        self.logger.info('Terminating: {}'.format(self))
+        try:
+            worker = self
+            def close():
+                worker.connection.close(200, 'closing for business')
+            def stop():
+                raise SystemExit('Stop')
+            #print 'terminating', str(self)
+            self.connection.add_timeout(0.05, close)
+            self.connection.add_timeout(0.1, stop)
+            
+        except ConnectionClosed, e:
+            pass

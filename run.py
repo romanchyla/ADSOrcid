@@ -15,13 +15,18 @@ import sys
 import time
 import pika
 import argparse
-import json
+import logging
 import traceback
+import requests
+import warnings
+from requests.packages.urllib3 import exceptions
+warnings.simplefilter('ignore', exceptions.InsecurePlatformWarning)
+
 from ADSOrcid import app, importer, updater
 from ADSOrcid.pipeline import GenericWorker
 from ADSOrcid.pipeline import pstart
 from ADSOrcid.utils import setup_logging, get_date
-from ADSOrcid.models import ClaimsLog, KeyValue
+from ADSOrcid.models import ClaimsLog, KeyValue, Records, AuthorInfo
 
 logger = setup_logging(__file__, __name__)
 RabbitMQWorker = GenericWorker.RabbitMQWorker
@@ -38,12 +43,12 @@ def purge_queues(queues):
     publish_worker.connect(app.config.get('RABBITMQ_URL'))
 
     for worker, wconfig in app.config.get('WORKERS').iteritems():
-            for x in ('publish', 'subscribe'):
-                if x in wconfig and wconfig[x]:
-                    try:
-                        publish_worker.channel.queue_delete(queue=wconfig[x])
-                    except pika.exceptions.ChannelClosed, e:
-                        pass
+        for x in ('publish', 'subscribe'):
+            if x in wconfig and wconfig[x]:
+                try:
+                    publish_worker.channel.queue_delete(queue=wconfig[x])
+                except pika.exceptions.ChannelClosed, e:
+                    pass
 
 
 def run_import(claims_file, queue='ads.orcid.claims', **kwargs):
@@ -58,7 +63,7 @@ def run_import(claims_file, queue='ads.orcid.claims', **kwargs):
     
     :return: no return
     """
-
+    logging.captureWarnings(True)
     logger.info('Loading records from: {0}'.format(claims_file))
     c = []
     importer.import_recs(claims_file, collector=c)
@@ -85,6 +90,7 @@ def reindex_claims(since=None, **kwargs):
     
     :return: no return
     """
+    logging.captureWarnings(True)
     if not since or isinstance(since, basestring) and since.strip() == "":
         with app.session_scope() as session:
             kv = session.query(KeyValue).filter_by(key='last.reindex').first()
@@ -96,33 +102,48 @@ def reindex_claims(since=None, **kwargs):
     from_date = get_date(since)
     orcidids = set()
     
-    logger.info('Loading records since: {0}'.format(from_date.isoformat()))
-    
-    # first re-check our own database (replay the logs)
-    with app.session_scope() as session:
-        for claim in session.query(ClaimsLog.orcidid.distinct().label('orcidid')).all():
-            orcidid = claim.orcidid
-            if orcidid and orcidid.strip() != "":
-                try:
-                    changed = updater.reindex_all_claims(orcidid, since=from_date.isoformat())
-                    if len(changed):
-                        orcidids.add(orcidid)
-                except:
-                    traceback.print_exc()
-                    continue
-    
-    # then get all new/old orcidids from orcid-service
-    orcidids = orcidids.union(updater.get_all_touched_profiles(from_date.isoformat()))
-    from_date = get_date()
-    
     # trigger re-indexing
     worker = RabbitMQWorker(params={
         'publish': 'ads.orcid.fresh-claims',
         'exchange': app.config.get('EXCHANGE', 'ads-orcid')
     })
-    worker.connect(app.config.get('RABBITMQ_URL'))  
+    worker.connect(app.config.get('RABBITMQ_URL'))
+    
+    
+    logger.info('Loading records since: {0}'.format(from_date.isoformat()))
+    
+    # first re-check our own database (replay the logs)
+    with app.session_scope() as session:
+        for author in session.query(AuthorInfo.orcidid.distinct().label('orcidid')).all():
+            orcidid = author.orcidid
+            if orcidid and orcidid.strip() != "":
+                try:
+                    changed = updater.reindex_all_claims(orcidid, since=from_date.isoformat(), ignore_errors=True)
+                    if len(changed):
+                        orcidids.add(orcidid)
+                    worker.publish({'orcidid': orcidid, 'force': True})
+                except:
+                    print 'Error processing: {0}'.format(orcidid)
+                    traceback.print_exc()
+                    continue
+                if len(orcidids) % 100 == 0:
+                    print 'Done replaying {0} profiles'.format(len(orcidids))
+    
+    print 'Now harvesting orcid profiles...'
+    
+    # then get all new/old orcidids from orcid-service
+    all_orcids = set(updater.get_all_touched_profiles(from_date.isoformat()))
+    orcidids = all_orcids.difference(orcidids)
+    from_date = get_date()
+    
+      
     for orcidid in orcidids:
-        worker.publish({'orcidid': orcidid})
+        try:
+            worker.publish({'orcidid': orcidid, 'force': True})
+        except: # potential backpressure (we are too fast)
+            time.sleep(2)
+            print 'Conn problem, retrying...', orcidid
+            worker.publish({'orcidid': orcidid, 'force': True})
         
     with app.session_scope() as session:
         kv = session.query(KeyValue).filter_by(key='last.reindex').first()
@@ -133,12 +154,81 @@ def reindex_claims(since=None, **kwargs):
             kv.value = from_date.isoformat()
         session.commit()
 
-    logger.info('Done processing {0} orcid ids.'.format(len(orcidids)))
+    print 'Done'
+    logger.info('Done submitting {0} orcid ids.'.format(len(orcidids)))
+
+
+def repush_claims(since=None, **kwargs):
+    """
+    Re-pushes all recs that were added since date 'X'
+    to the output (i.e. forwards them onto the Solr queue)
+    
+    :param: since - RFC889 formatted string
+    :type: str
+    
+    :return: no return
+    """
+    logging.captureWarnings(True)
+    if not since or isinstance(since, basestring) and since.strip() == "":
+        with app.session_scope() as session:
+            kv = session.query(KeyValue).filter_by(key='last.repush').first()
+            if kv is not None:
+                since = kv.value
+            else:
+                since = '1974-11-09T22:56:52.518001Z' 
+    
+    from_date = get_date(since)
+    orcidids = set()
+    
+    logger.info('Re-pushing records since: {0}'.format(from_date.isoformat()))
+    
+    worker = RabbitMQWorker(params={
+        'publish': 'ads.orcid.output',
+        'exchange': app.config.get('EXCHANGE', 'ads-orcid')
+    })
+    worker.connect(app.config.get('RABBITMQ_URL'))
+    
+    num_bibcodes = 0
+    with app.session_scope() as session:
+        for rec in session.query(Records) \
+            .filter(Records.updated >= from_date) \
+            .order_by(Records.updated.asc()) \
+            .all():
+            
+            data = rec.toJSON()
+            try:
+                worker.publish({'bibcode': data['bibcode'], 'authors': data['authors'], 'claims': data['claims']})
+            except: # potential backpressure (we are too fast)
+                time.sleep(2)
+                print 'Conn problem, retrying ', data['bibcode']
+                worker.publish({'bibcode': data['bibcode'], 'authors': data['authors'], 'claims': data['claims']})
+            num_bibcodes += 1
+    
+    with app.session_scope() as session:
+        kv = session.query(KeyValue).filter_by(key='last.repush').first()
+        if kv is None:
+            kv = KeyValue(key='last.repush', value=get_date())
+            session.add(kv)
+        else:
+            kv.value = get_date()
+        session.commit()
+        
+    logger.info('Done processing {0} orcid ids.'.format(num_bibcodes))
+
+
 
 def start_pipeline():
     """Starts the workers and let them do their job"""
     pstart.start_pipeline({}, app)
-    
+
+
+def print_kvs():    
+    """Prints the values stored in the KeyValue table."""
+    print 'Key, Value from the storage:'
+    print '-' * 80
+    with app.session_scope() as session:
+        for kv in session.query(KeyValue).order_by('key').all():
+            print kv.key, kv.value
 
 if __name__ == '__main__':
 
@@ -170,12 +260,26 @@ if __name__ == '__main__':
                         dest='reindex_claims',
                         action='store_true',
                         help='Reindex claims')
+    
+    parser.add_argument('-u',
+                        '--repush_claims',
+                        dest='repush_claims',
+                        action='store_true',
+                        help='Re-push claims')
+    
     parser.add_argument('-s', 
                         '--since', 
                         dest='since_date', 
                         action='store',
                         default=None,
                         help='Starting date for reindexing')
+    
+    parser.add_argument('-k', 
+                        '--kv', 
+                        dest='kv', 
+                        action='store_true',
+                        default=False,
+                        help='Show current values of KV store')
     
     parser.set_defaults(purge_queues=False)
     parser.set_defaults(start_pipeline=False)
@@ -184,6 +288,11 @@ if __name__ == '__main__':
     app.init_app()
     
     work_done = False
+    
+    if args.kv:
+        work_done = True
+        print_kvs()
+
     if args.purge_queues:
         purge_queues(app.config.get('WORKERS'))
         sys.exit(0)
@@ -199,6 +308,10 @@ if __name__ == '__main__':
     
     if args.reindex_claims:
         reindex_claims(args.since_date)
+        work_done = True
+    
+    if args.repush_claims:
+        repush_claims(args.since_date)
         work_done = True
     
     if not work_done:

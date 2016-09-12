@@ -2,9 +2,8 @@
 
 from .. import app
 from . import GenericWorker
-from .. import matcher
 from ADSOrcid import updater
-
+from .exceptions import ProcessingException
 
 class ClaimsRecorder(GenericWorker.RabbitMQWorker):
     """
@@ -16,9 +15,9 @@ class ClaimsRecorder(GenericWorker.RabbitMQWorker):
         super(ClaimsRecorder, self).__init__(params)
         app.init_app()
         
-    def process_payload(self, msg, **kwargs):
+    def process_payload(self, claim, **kwargs):
         """
-        :param msg: contains the message inside the packet
+        :param claim: contains the message inside the packet
             {'bibcode': '....',
             'orcidid': '.....',
             'name': 'author name',
@@ -27,11 +26,21 @@ class ClaimsRecorder(GenericWorker.RabbitMQWorker):
         :return: no return
         """
         
-        if not isinstance(msg, dict):
-            raise Exception('Received unknown payload {0}'.format(msg))
+        if not isinstance(claim, dict):
+            raise ProcessingException('Received unknown payload {0}'.format(claim))
         
-        if not msg.get('orcidid'):
-            raise Exception('Unusable payload, missing orcidid {0}'.format(msg))
+        if not claim.get('orcidid'):
+            raise ProcessingException('Unusable payload, missing orcidid {0}'.format(claim))
 
-        record = updater.retrieve_metadata(msg['bibcode'])
+        bibcode = claim['bibcode']
+        rec = updater.retrieve_record(bibcode)
+        
+        
+        cl = updater.update_record(rec, claim)
+        if cl:
+            updater.record_claims(bibcode, rec['claims'], rec['authors'])
+            self.publish({'authors': rec.get('authors'), 'bibcode': rec['bibcode'], 'claims': rec.get('claims')})
+        else:
+            self.logger.warning('Claim refused for bibcode:{0} and orcidid:{1}'
+                            .format(claim['bibcode'], claim['orcidid']))
         

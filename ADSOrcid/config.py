@@ -1,3 +1,5 @@
+import os
+
 # Connection to the database where we save orcid-claims (this database
 # serves as a running log of claims and storage of author-related
 # information). It is not consumed by others (ie. we 'push' results) 
@@ -35,7 +37,8 @@ API_ORCID_PROFILE_ENDPOINT = 'http://pub.orcid.org/v1.2/%s/orcid-bio'
 # lower than this, we refuse to match names, eg.
 # Levenshtein.ratio('Neumann, John', 'Neuman, J')
 # > Out[2]: 0.8181818181818182
-MIN_LEVENSHTEIN_RATIO = 0.6
+# Experimental results show 0.69 to be the best value.
+MIN_LEVENSHTEIN_RATIO = 0.69
 
 
 # possible values: WARN, INFO, DEBUG
@@ -67,18 +70,12 @@ WORKERS = {
         'error': 'ads.orcid.error',
         'durable': True
     },
-    'MongoUpdater': {
-        'concurrency': 1,
+    'ClaimsRecorder': {
+        'concurrency': 5,
         'subscribe': 'ads.orcid.updates',
         'publish': 'ads.orcid.output',
         'error': 'ads.orcid.error',
         'durable': True
-    },   
-    'ErrorHandler': {
-        'subscribe': None,
-        'exchange': None,
-        'publish': None,
-        'durable' : False
     },
     'OutputHandler': {
         'subscribe': 'ads.orcid.output',
@@ -88,5 +85,18 @@ WORKERS = {
             'exchange': 'MergerPipelineExchange',
             'publish': 'SolrUpdateQueue'
         }
-    }
+    },
+    'ErrorHandler': {
+        'subscribe': 'ads.orcid.error',
+        'exchange': None,
+        'publish': None,
+        'durable' : False
+    },
+    
 }
+
+# order in which the identifiers (inside an orcid profile) will be tested
+# to retrieve a canonical bibcode; first match will stop the process. Higher number
+# means 'higher priority'
+# the '*' will be used for no-match, if this number is <0, the identifier will be skipped
+ORCID_IDENTIFIERS_ORDER = {'bibcode': 9, 'doi': 8, 'arxiv': 7, '*': 0}

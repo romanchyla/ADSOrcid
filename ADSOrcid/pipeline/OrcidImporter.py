@@ -4,13 +4,15 @@ import time
 import traceback
 from ..models import KeyValue, ClaimsLog
 from ..utils import get_date
-from .. import matcher
+from .. import matcher, updater
 import requests
 import datetime
 import threading
 from sqlalchemy import and_
 from dateutil.tz import tzutc
 from ADSOrcid import importer
+import random
+
 
 class OrcidImporter(GenericWorker.RabbitMQWorker):
     """
@@ -33,20 +35,20 @@ class OrcidImporter(GenericWorker.RabbitMQWorker):
     def start_cronjob(self):
         """Initiates the task in the background"""
         self.keep_running = True
-        def runner(GenericWorker):
+        def runner(worker):
             time.sleep(1)
-            while GenericWorker.keep_running:
+            while worker.keep_running:
                 try:
                     # keep consuming the remote stream until there is 0 recs
-                    while GenericWorker.check_orcid_updates():
+                    while worker.check_orcid_updates():
                         pass
                     time.sleep(app.config.get('ORCID_CHECK_FOR_CHANGES', 60*5) / 2)
                 except Exception, e:
-                    GenericWorker.logger.error('Error fetching profiles: '
+                    worker.logger.error('Error fetching profiles: '
                                 '{0} ({1})'.format(e.message,
                                                    traceback.format_exc()))
         
-        self.checker = threading.Thread(target=runner, kwargs={'GenericWorker': self})
+        self.checker = threading.Thread(target=runner, kwargs={'worker': self})
         self.checker.setDaemon(True)
         self.checker.start()
         
@@ -75,17 +77,17 @@ class OrcidImporter(GenericWorker.RabbitMQWorker):
                     self.logger.error('Failed getting {0}\n{1}'.format(
                                 app.config.get('API_ORCID_UPDATES_ENDPOINT') % kv.value,
                                 r.text))
-                    return
+                    return False
                 
                 if r.text.strip() == "":
-                    return
+                    return False
                 
                 # we received the data, immediately update the databaes (so that other processes don't 
                 # ask for the same starting date)
                 data = r.json()
                 
                 if len(data) == 0:
-                    return
+                    return False
                 
                 # data should be ordered by date update (but to be sure, let's check it); we'll save it
                 # as latest 'check point'
@@ -99,8 +101,8 @@ class OrcidImporter(GenericWorker.RabbitMQWorker):
                 for rec in data:
                     payload = {'orcidid': rec['orcid_id'], 'start': latest_point.isoformat()}
                     # publish data to ourselves
-                    self.publish(payload, topic=self.params.get('publish', 'ads.orcid.orcid_import'))
-                    
+                    self.publish(payload, topic=self.params.get('subscribe', 'ads.orcid.fresh-claims'))
+                return True # continue processing
 
     def _get_ads_orcid_profile(self, orcidid):
         r = requests.get(app.config.get('API_ORCID_EXPORT_PROFILE') % orcidid,
@@ -125,6 +127,8 @@ class OrcidImporter(GenericWorker.RabbitMQWorker):
              'orcidid': '.....',
              'start': 'ISO8801 formatted date (optional), indicates 
                  the moment we checked the orcid-service'
+             'force': Boolean (if present, we'll not skip unchanged
+                 profile)
             }
         :return: no return
         """
@@ -132,6 +136,9 @@ class OrcidImporter(GenericWorker.RabbitMQWorker):
         assert 'orcidid' in msg
         orcidid = msg['orcidid']
 
+        # make sure the author is there (even if without documents) 
+        author = matcher.retrieve_orcid(orcidid) # @UnusedVariable
+        
         data = self._get_ads_orcid_profile(orcidid)
         if data is None:
             return #TODO: remove all existing claims?
@@ -147,13 +154,8 @@ class OrcidImporter(GenericWorker.RabbitMQWorker):
             # orcid is THE ugliest datastructure of today!
             try:
                 works = profile['orcid-profile']['orcid-activities']['orcid-works']['orcid-work']
-            except KeyError, e:
+            except:
                 self.logger.warning('Nothing to do for: '
-                    '{0} ({1})'.format(orcidid,
-                                       traceback.format_exc()))
-                return
-            except TypeError, e:
-                self.logger.error('Error processing a profile: '
                     '{0} ({1})'.format(orcidid,
                                        traceback.format_exc()))
                 return
@@ -176,8 +178,11 @@ class OrcidImporter(GenericWorker.RabbitMQWorker):
                 q = session.query(ClaimsLog).filter_by(orcidid=orcidid).order_by(ClaimsLog.id.asc())
             else:
                 if get_date(last_update.created) == updt:
-                    self.logger.info("Skipping {0} (profile unchanged)".format(orcidid))
-                    return
+                    if msg.get('force'):
+                        self.logger.info("Profile {0} unchanged, but force in effect.".format(orcidid))
+                    else:
+                        self.logger.info("Skipping {0} (profile unchanged)".format(orcidid))
+                        return
                 q = session.query(ClaimsLog).filter(
                     and_(ClaimsLog.orcidid == orcidid, ClaimsLog.id > last_update.id)) \
                     .order_by(ClaimsLog.id.asc())
@@ -195,7 +200,7 @@ class OrcidImporter(GenericWorker.RabbitMQWorker):
                     removed[bibc] = (cl.bibcode, get_date(cl.created))
                     if bibc in updated:
                         del updated[bibc]
-                elif cl.status in ('claimed', 'updated'):
+                elif cl.status in ('claimed', 'updated', 'forced'):
                     updated[bibc] = (cl.bibcode, get_date(cl.created))
                     if bibc in removed:
                         del removed[bibc]
@@ -207,11 +212,32 @@ class OrcidImporter(GenericWorker.RabbitMQWorker):
                 bibc = None
                 try:
                     ids =  w['work-external-identifiers']['work-external-identifier']
+                    seek_ids = []
+                    
+                    # painstakingly check ids (start from a bibcode) if we can find it
+                    # we'll send it through (but start from bibcodes, then dois, arxiv...)
+                    fmap = app.config.get('ORCID_IDENTIFIERS_ORDER', {'bibcode': 9, '*': -1})
                     for x in ids:
                         xtype = x.get('work-external-identifier-type', None)
-                        if xtype and xtype.lower() == 'bibcode':
-                            bibc = x['work-external-identifier-id']['value']
+                        if xtype:
+                            seek_ids.append((fmap.get(xtype.lower().strip(), fmap.get('*', -1)), 
+                                             x['work-external-identifier-id']['value']))
+                    
+                    if len(seek_ids) == 0:
+                        continue
+                    
+                    seek_ids = sorted(seek_ids, key=lambda x: x[0], reverse=True)
+                    for _priority, fvalue in seek_ids:
+                        try:
+                            time.sleep(1.0/random.randint(1, 20)) # be nice to the api
+                            metadata = updater.retrieve_metadata(fvalue, search_identifiers=True)
+                            bibc = metadata.get('bibcode')
+                            self.logger.info('Match found {0} -> {1}'.format(fvalue, bibc))
                             break
+                        except Exception, e:
+                            self.logger.warning(e.message)
+                            
+                    
                     if bibc:
                         # would you believe that orcid doesn't return floats?
                         ts = str(w['last-modified-date']['value'])
@@ -222,13 +248,16 @@ class OrcidImporter(GenericWorker.RabbitMQWorker):
                         except KeyError:
                             provenance = 'orcid-profile'
                         orcid_present[bibc.lower().strip()] = (bibc.strip(), get_date(ts.isoformat()), provenance)
+                    else:
+                        self.logger.warning('Found no bibcode for {0}'.format(ids))
+                        
                 except KeyError, e:
-                    self.logger.error('Error processing a record: '
+                    self.logger.warning('Error processing a record: '
                         '{0} ({1})'.format(w,
                                            traceback.format_exc()))
                     continue
                 except TypeError, e:
-                    self.logger.error('Error processing a record: '
+                    self.logger.warning('Error processing a record: '
                         '{0} ({1})'.format(w,
                                            traceback.format_exc()))
                     continue
@@ -281,6 +310,13 @@ class OrcidImporter(GenericWorker.RabbitMQWorker):
                                                       status='updated',
                                                       date=orcid_claim[1])
                                                       )
+                elif msg.get('force', False):
+                    to_claim.append(importer.create_claim(bibcode=orcid_claim[0], 
+                                                      orcidid=orcidid, 
+                                                      provenance=self.__class__.__name__, 
+                                                      status='forced',
+                                                      date=orcid_claim[1])
+                                                      )
                 else:
                     to_claim.append(importer.create_claim(bibcode=orcid_claim[0], 
                                                       orcidid=orcidid, 
@@ -290,4 +326,5 @@ class OrcidImporter(GenericWorker.RabbitMQWorker):
         if len(to_claim):
             json_claims = importer.insert_claims(to_claim)
             for claim in json_claims:
+                claim['bibcode_verified'] = True
                 self.publish(claim)

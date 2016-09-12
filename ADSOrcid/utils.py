@@ -99,8 +99,8 @@ def setup_logging(file_, name_, level='WARN'):
 
     level = getattr(logging, level)
 
-    logfmt = '%(levelname)s\t%(process)d [%(asctime)s]:\t%(message)s'
-    datefmt = '%m/%d/%Y %H:%M:%S'
+    logfmt = u'%(levelname)s\t%(process)d [%(asctime)s]:\t%(message)s'
+    datefmt = u'%m/%d/%Y %H:%M:%S'
     formatter = logging.Formatter(fmt=logfmt, datefmt=datefmt)
     logging_instance = logging.getLogger(name_)
     fn_path = os.path.join(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')), 'logs')

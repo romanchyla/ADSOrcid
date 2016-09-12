@@ -3,7 +3,8 @@
 from .. import app
 from . import GenericWorker
 from .. import matcher
-
+from .. import updater
+from .exceptions import ProcessingException
 
 class ClaimsIngester(GenericWorker.RabbitMQWorker):
     """
@@ -28,10 +29,10 @@ class ClaimsIngester(GenericWorker.RabbitMQWorker):
         """
         
         if not isinstance(msg, dict):
-            raise Exception('Received unknown payload {0}'.format(msg))
+            raise ProcessingException('Received unknown payload {0}'.format(msg))
         
         if not msg.get('orcidid'):
-            raise Exception('Unusable payload, missing orcidid {0}'.format(msg))
+            raise ProcessingException('Unusable payload, missing orcidid {0}'.format(msg))
 
         if msg.get('status', 'created') in ('unchanged', '#full-import'):
             return
@@ -39,8 +40,25 @@ class ClaimsIngester(GenericWorker.RabbitMQWorker):
         author = matcher.retrieve_orcid(msg['orcidid'])
         
         if not author:
-            raise Exception('Unable to retrieve info for {0}'.format(msg['orcidid']))
+            raise ProcessingException('Unable to retrieve info for {0}'.format(msg['orcidid']))
         
+        # clean up the bicode
+        bibcode = msg['bibcode'].strip()
+        
+        if not msg.get('bibcode_verified', False):
+            if ' ' in bibcode:
+                parts = bibcode.split()
+                l = [len(x) for x in parts]
+                if 19 in l:
+                    bibcode = parts[l.index(19)] 
+            
+            # check if we can translate the bibcode/identifier
+            rec = updater.retrieve_metadata(bibcode)
+            if rec.get('bibcode') != bibcode:
+                self.logger.warning('Resolving {0} into {1}'.format(bibcode, rec.get('bibcode')))
+            bibcode = rec.get('bibcode') 
+        
+        msg['bibcode'] = bibcode
         msg['name'] = author['name']
         if author.get('facts', None):
             for k, v in author['facts'].iteritems():
