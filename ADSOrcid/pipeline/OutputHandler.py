@@ -62,7 +62,9 @@ class OutputHandler(GenericWorker.RabbitMQWorker):
         has to grab data from there when pushing to indexer.
         """
         
-        assert(claim['bibcode'] and claim['claims'] and claim['authors'])
+        if not (claim['bibcode'] and 'claims' in claim and claim['authors']):
+            raise ProcessingException('Wrong claim data: {0} '.format(claim))
+        
         bibcode = claim['bibcode']
         
         # retrieve authors (and bail if not available)
