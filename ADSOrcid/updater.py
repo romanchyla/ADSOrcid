@@ -175,6 +175,8 @@ def update_record(rec, claim):
         claims[fld_name] = ['-'] * num_authors
     elif len(claims[fld_name]) < num_authors: # check the lenght is correct
         claims[fld_name] += ['-'] * (num_authors - len(claims[fld_name]))
+    elif len(claims[fld_name]) > num_authors:
+        claims[fld_name] = claims[fld_name][0:num_authors]
 
     # always remove the orcidid
     modified = False    
