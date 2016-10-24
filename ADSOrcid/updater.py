@@ -299,7 +299,7 @@ def reindex_all_claims(orcidid, since=None, ignore_errors=False):
                     continue
                 rec = r.toJSON()
                 if _remove_orcid(rec, orcidid):
-                    r.claims = json.dumps(rec.claims)
+                    r.claims = json.dumps(rec.get('claims'))
                     r.updated = get_date()
                     recs_modified.add(bibcode)
         
