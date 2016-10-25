@@ -45,12 +45,13 @@ class OrcidImporter(GenericWorker.RabbitMQWorker):
                         pass
                     time.sleep(app.config.get('ORCID_CHECK_FOR_CHANGES', 60*5) / 2)
                 except Exception, e:
-                    worker.logger.error('Error fetching profiles: '
+                    worker.logger.error('Error fetching profiles (self destroying): '
                                 '{0} ({1})'.format(e.message,
                                                    traceback.format_exc()))
+                    raise e
         
         self.checker = threading.Thread(target=runner, kwargs={'worker': self})
-        self.checker.setDaemon(True)
+        #self.checker.setDaemon(True)
         self.checker.start()
         
         
