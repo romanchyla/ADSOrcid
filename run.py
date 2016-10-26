@@ -80,7 +80,7 @@ def run_import(claims_file, queue='ads.orcid.claims', **kwargs):
     logger.info('Done processing {0} claims.'.format(len(c)))
 
 
-def reindex_claims(since=None, **kwargs):
+def reindex_claims(since=None, orcid_ids=None, **kwargs):
     """
     Re-runs all claims, both from the pipeline and
     from the orcid-service storage.
@@ -90,6 +90,18 @@ def reindex_claims(since=None, **kwargs):
     
     :return: no return
     """
+    worker = RabbitMQWorker(params={
+        'publish': 'ads.orcid.fresh-claims',
+        'exchange': app.config.get('EXCHANGE', 'ads-orcid')
+    })
+    worker.connect(app.config.get('RABBITMQ_URL'))
+    if orcid_ids:
+        for oid in orcid_ids.split(','):
+            worker.publish({'orcidid': oid, 'force': True})
+        if not since:
+            print 'Done (just the supplied orcidids)'
+            return
+        
     logging.captureWarnings(True)
     if not since or isinstance(since, basestring) and since.strip() == "":
         with app.session_scope() as session:
@@ -101,13 +113,6 @@ def reindex_claims(since=None, **kwargs):
     
     from_date = get_date(since)
     orcidids = set()
-    
-    # trigger re-indexing
-    worker = RabbitMQWorker(params={
-        'publish': 'ads.orcid.fresh-claims',
-        'exchange': app.config.get('EXCHANGE', 'ads-orcid')
-    })
-    worker.connect(app.config.get('RABBITMQ_URL'))
     
     
     logger.info('Loading records since: {0}'.format(from_date.isoformat()))
@@ -158,7 +163,7 @@ def reindex_claims(since=None, **kwargs):
     logger.info('Done submitting {0} orcid ids.'.format(len(orcidids)))
 
 
-def repush_claims(since=None, **kwargs):
+def repush_claims(since=None, orcid_ids=None, **kwargs):
     """
     Re-pushes all recs that were added since date 'X'
     to the output (i.e. forwards them onto the Solr queue)
@@ -168,6 +173,18 @@ def repush_claims(since=None, **kwargs):
     
     :return: no return
     """
+    worker = RabbitMQWorker(params={
+        'publish': 'ads.orcid.output',
+        'exchange': app.config.get('EXCHANGE', 'ads-orcid')
+    })
+    worker.connect(app.config.get('RABBITMQ_URL'))
+    if orcid_ids:
+        for oid in orcid_ids.split(','):
+            worker.publish({'orcidid': oid, 'force': False})
+        if not since:
+            print 'Done (just the supplied orcidids)'
+            return
+        
     logging.captureWarnings(True)
     if not since or isinstance(since, basestring) and since.strip() == "":
         with app.session_scope() as session:
@@ -182,11 +199,6 @@ def repush_claims(since=None, **kwargs):
     
     logger.info('Re-pushing records since: {0}'.format(from_date.isoformat()))
     
-    worker = RabbitMQWorker(params={
-        'publish': 'ads.orcid.output',
-        'exchange': app.config.get('EXCHANGE', 'ads-orcid')
-    })
-    worker.connect(app.config.get('RABBITMQ_URL'))
     
     num_bibcodes = 0
     with app.session_scope() as session:
@@ -214,6 +226,69 @@ def repush_claims(since=None, **kwargs):
         session.commit()
         
     logger.info('Done processing {0} orcid ids.'.format(num_bibcodes))
+
+
+
+def refetch_orcidids(since=None, orcid_ids=None, **kwargs):
+    """
+    Gets all orcidids that were updated since time X.
+    
+    :param: since - RFC889 formatted string
+    :type: str
+    
+    :return: no return
+    """
+    worker = RabbitMQWorker(params={
+        'publish': 'ads.orcid.fresh-claims',
+        'exchange': app.config.get('EXCHANGE', 'ads-orcid')
+    })
+    worker.connect(app.config.get('RABBITMQ_URL'))
+    if orcid_ids:
+        for oid in orcid_ids.split(','):
+            worker.publish({'orcidid': oid, 'force': False})
+        if not since:
+            print 'Done (just the supplied orcidids)'
+            return
+    
+    
+    logging.captureWarnings(True)
+    if not since or isinstance(since, basestring) and since.strip() == "":
+        with app.session_scope() as session:
+            kv = session.query(KeyValue).filter_by(key='last.refetch').first()
+            if kv is not None:
+                since = kv.value
+            else:
+                since = '1974-11-09T22:56:52.518001Z' 
+    
+    from_date = get_date(since)
+    
+    logger.info('Re-fetching orcidids updated since: {0}'.format(from_date.isoformat()))
+    
+        
+    # then get all new/old orcidids from orcid-service
+    orcidids = set(updater.get_all_touched_profiles(from_date.isoformat()))
+    from_date = get_date()
+    
+      
+    for orcidid in orcidids:
+        try:
+            worker.publish({'orcidid': orcidid, 'force': False})
+        except: # potential backpressure (we are too fast)
+            time.sleep(2)
+            print 'Conn problem, retrying...', orcidid
+            worker.publish({'orcidid': orcidid, 'force': False})
+        
+    with app.session_scope() as session:
+        kv = session.query(KeyValue).filter_by(key='last.refetch').first()
+        if kv is None:
+            kv = KeyValue(key='last.refetch', value=from_date.isoformat())
+            session.add(kv)
+        else:
+            kv.value = from_date.isoformat()
+        session.commit()
+
+    print 'Done'
+    logger.info('Done submitting {0} orcid ids.'.format(len(orcidids)))
 
 
 
@@ -267,12 +342,25 @@ if __name__ == '__main__':
                         action='store_true',
                         help='Re-push claims')
     
+    parser.add_argument('-f',
+                        '--refetch_orcidids',
+                        dest='refetch_orcidids',
+                        action='store_true',
+                        help='Gets all orcidids changed since X (as discovered from ads api) and sends them to the queue.')
+    
     parser.add_argument('-s', 
                         '--since', 
                         dest='since_date', 
                         action='store',
                         default=None,
                         help='Starting date for reindexing')
+    
+    parser.add_argument('-o', 
+                        '--oid', 
+                        dest='orcid_ids', 
+                        action='store',
+                        default=None,
+                        help='Comma delimited list of orcid-ids to re-index (use with refetch orcidids)')
     
     parser.add_argument('-k', 
                         '--kv', 
@@ -307,11 +395,13 @@ if __name__ == '__main__':
         work_done = True
     
     if args.reindex_claims:
-        reindex_claims(args.since_date)
+        reindex_claims(args.since_date, args.orcid_ids)
         work_done = True
-    
-    if args.repush_claims:
-        repush_claims(args.since_date)
+    elif args.repush_claims:
+        repush_claims(args.since_date, args.orcid_ids)
+        work_done = True
+    elif args.refetch_orcidids:
+        refetch_orcidids(args.since_date, args.orcid_ids)
         work_done = True
     
     if not work_done:
