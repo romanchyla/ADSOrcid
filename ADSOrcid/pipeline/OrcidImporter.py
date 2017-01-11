@@ -12,6 +12,7 @@ from sqlalchemy import and_
 from dateutil.tz import tzutc
 from ADSOrcid import importer
 import random
+from ADSOrcid.exceptions import IgnorableException
 
 
 class OrcidImporter(GenericWorker.RabbitMQWorker):
@@ -146,8 +147,9 @@ class OrcidImporter(GenericWorker.RabbitMQWorker):
             }
         :return: no return
         """
+        if 'orcidid' not in msg:
+            raise IgnorableException('Received garbage: {}'.format(msg))
         
-        assert 'orcidid' in msg
         orcidid = msg['orcidid']
 
         # make sure the author is there (even if without documents) 
@@ -159,7 +161,7 @@ class OrcidImporter(GenericWorker.RabbitMQWorker):
         
         profile = data.get('profile', {})
         if not profile:
-            pass #TODO: remove all existing claims?
+            return #TODO: remove all existing claims?
         
         
         to_claim = []
@@ -193,7 +195,7 @@ class OrcidImporter(GenericWorker.RabbitMQWorker):
             else:
                 if get_date(last_update.created) == updt:
                     if msg.get('force'):
-                        self.logger.info("Profile {0} unchanged, but force in effect.".format(orcidid))
+                        self.logger.info("Profile {0} unchanged, but forced update in effect.".format(orcidid))
                     else:
                         self.logger.info("Skipping {0} (profile unchanged)".format(orcidid))
                         return
@@ -221,6 +223,8 @@ class OrcidImporter(GenericWorker.RabbitMQWorker):
             
             
             # now get info about each record #TODO: enhance the matching (and refactor)
+            # we'll try to match identifiers against our own API; if a document is found
+            # it will be added to the `orcid_present` with corresponding timestamp (cdate)
             orcid_present = {}
             for w in works:
                 bibc = None
@@ -245,9 +249,10 @@ class OrcidImporter(GenericWorker.RabbitMQWorker):
                         try:
                             time.sleep(1.0/random.randint(1, 20)) # be nice to the api
                             metadata = updater.retrieve_metadata(fvalue, search_identifiers=True)
-                            bibc = metadata.get('bibcode')
-                            self.logger.info('Match found {0} -> {1}'.format(fvalue, bibc))
-                            break
+                            if metadata and metadata.get('bibcode'):
+                                bibc = metadata.get('bibcode')
+                                self.logger.info('Match found {0} -> {1}'.format(fvalue, bibc))
+                                break
                         except Exception, e:
                             self.logger.warning(e.message)
                             

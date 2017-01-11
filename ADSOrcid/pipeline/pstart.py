@@ -235,7 +235,8 @@ class TaskMaster(Singleton):
                 self._worker = self._worker()
                 self._worker.run()
             def terminate(self):
-                self._worker.terminate()
+                if hasattr(self._worker, 'terminate'):
+                    self._worker.terminate()
             
         for worker, params in self.workers.iteritems():
             
