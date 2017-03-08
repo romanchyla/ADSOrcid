@@ -68,15 +68,16 @@ class OutputHandler(GenericWorker.RabbitMQWorker):
         bibcode = claim['bibcode']
         
         # retrieve authors (and bail if not available)
-        authors = self.mongodb[app.config.get('MONGODB_AUTHORS', 'authors')].find_one({'_id': bibcode})
-        if not authors:
-            raise ProcessingException('{0} has no authors in the mongodb'.format(bibcode))
-        
-        if claim['authors'] != authors:
-            if self._authors_differ(authors, claim['authors']):
-                self.logger.warning('The authors as retrieved from MongoDB differ!. {0} : {1}'
-                                .format(claim['authors'], authors))
-        
+        # deactivated as we don't have the author information available any more (it's in the other, biblib collection)
+        # authors = self.mongodb[app.config.get('MONGODB_AUTHORS', 'authors')].find_one({'_id': bibcode})
+        # if not authors:
+        #     raise ProcessingException('{0} has no authors in the mongodb'.format(bibcode))
+        #
+        # if claim['authors'] != authors:
+        #     if self._authors_differ(authors, claim['authors']):
+        #         self.logger.warning('The authors as retrieved from MongoDB differ!. {0} : {1}'
+        #                         .format(claim['authors'], authors))
+ 
         # find existing claims (if any)
         mongocoll = self.mongodb[app.config.get('MONGODB_COLL', 'orcid_claims')]
         orcid_claims = mongocoll.find_one({'_id': bibcode})
