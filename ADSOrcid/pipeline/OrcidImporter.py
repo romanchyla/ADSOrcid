@@ -1,6 +1,7 @@
 from .. import app
 from . import GenericWorker
 import time
+import json
 import traceback
 from ..models import KeyValue, ClaimsLog
 from ..utils import get_date
@@ -163,7 +164,7 @@ class OrcidImporter(GenericWorker.RabbitMQWorker):
         if not profile:
             return #TODO: remove all existing claims?
         
-        
+
         to_claim = []
         with app.session_scope() as session:
               
@@ -202,25 +203,7 @@ class OrcidImporter(GenericWorker.RabbitMQWorker):
                 q = session.query(ClaimsLog).filter(
                     and_(ClaimsLog.orcidid == orcidid, ClaimsLog.id > last_update.id)) \
                     .order_by(ClaimsLog.id.asc())
-            
-                    
-            # find all records we have processed at some point
-            updated = {}
-            removed = {}
-            
-            for cl in q.all():
-                if not cl.bibcode:
-                    continue
-                bibc = cl.bibcode.lower()
-                if cl.status == 'removed':
-                    removed[bibc] = (cl.bibcode, get_date(cl.created))
-                    if bibc in updated:
-                        del updated[bibc]
-                elif cl.status in ('claimed', 'updated', 'forced'):
-                    updated[bibc] = (cl.bibcode, get_date(cl.created))
-                    if bibc in removed:
-                        del removed[bibc]
-            
+                        
             
             # now get info about each record #TODO: enhance the matching (and refactor)
             # we'll try to match identifiers against our own API; if a document is found
@@ -247,13 +230,14 @@ class OrcidImporter(GenericWorker.RabbitMQWorker):
                     seek_ids = sorted(seek_ids, key=lambda x: x[0], reverse=True)
                     for _priority, fvalue in seek_ids:
                         try:
-                            time.sleep(1.0/random.randint(1, 20)) # be nice to the api
+                            time.sleep(1.0/random.randint(1, 10)) # be nice to the api
                             metadata = updater.retrieve_metadata(fvalue, search_identifiers=True)
-                            if metadata and metadata.get('bibcode'):
+                            if metadata and metadata.get('bibcode', None):
                                 bibc = metadata.get('bibcode')
                                 self.logger.info('Match found {0} -> {1}'.format(fvalue, bibc))
                                 break
                         except Exception, e:
+                            self.logger.error('Exception while searching for matching bibcode for: {}'.format(fvalue))
                             self.logger.warning(e.message)
                             
                     
@@ -268,7 +252,7 @@ class OrcidImporter(GenericWorker.RabbitMQWorker):
                             provenance = 'orcid-profile'
                         orcid_present[bibc.lower().strip()] = (bibc.strip(), get_date(ts.isoformat()), provenance)
                     else:
-                        self.logger.warning('Found no bibcode for {0}'.format(ids))
+                        self.logger.warning('Found no bibcode for: {orcidid}. {ids}'.format(ids=json.dumps(ids), orcidid=orcidid))
                         
                 except KeyError, e:
                     self.logger.warning('Error processing a record: '
@@ -280,7 +264,24 @@ class OrcidImporter(GenericWorker.RabbitMQWorker):
                         '{0} ({1})'.format(w,
                                            traceback.format_exc()))
                     continue
+
             
+            # find all records we have processed at some point
+            updated = {}
+            removed = {}
+            
+            for cl in q.all():
+                if not cl.bibcode:
+                    continue
+                bibc = cl.bibcode.lower()
+                if cl.status == 'removed':
+                    removed[bibc] = (cl.bibcode, get_date(cl.created))
+                    if bibc in updated:
+                        del updated[bibc]
+                else: #elif cl.status in ('claimed', 'updated', 'forced', 'unchanged'):
+                    updated[bibc] = (cl.bibcode, get_date(cl.created))
+                    if bibc in removed:
+                        del removed[bibc]
             
             #always insert a record that marks the beginning of a full-import
             #TODO: record orcid's last-modified-date
