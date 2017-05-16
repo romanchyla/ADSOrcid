@@ -1,5 +1,4 @@
-from app import session_scope, config
-from . import app
+from . import app, db
 from .models import AuthorInfo, ChangeLog
 import requests
 import json
@@ -26,7 +25,7 @@ def retrieve_orcid(orcid):
     :param orcid - String (orcid id)
     :return - OrcidModel datastructure
     """
-    with session_scope() as session:
+    with db.session_scope() as session:
         u = session.query(AuthorInfo).filter_by(orcidid=orcid).first()
         if u is not None:
             return update_author(u)
@@ -38,7 +37,7 @@ def retrieve_orcid(orcid):
 
 @cachetools.cached(orcid_cache)
 def get_public_orcid_profile(orcidid):
-    r = requests.get(config.get('API_ORCID_PROFILE_ENDPOINT') % orcidid,
+    r = requests.get(app.conf.get('API_ORCID_PROFILE_ENDPOINT') % orcidid,
                  headers={'Accept': 'application/json'})
     if r.status_code != 200:
         return None
@@ -47,8 +46,8 @@ def get_public_orcid_profile(orcidid):
 
 @cachetools.cached(ads_cache)
 def get_ads_orcid_profile(orcidid):
-    r = requests.get(config.get('API_ORCID_EXPORT_PROFILE') % orcidid,
-                 headers={'Accept': 'application/json', 'Authorization': 'Bearer:%s' % config.get('API_TOKEN')})
+    r = requests.get(app.conf.get('API_ORCID_EXPORT_PROFILE') % orcidid,
+                 headers={'Accept': 'application/json', 'Authorization': 'Bearer:%s' % app.conf.get('API_TOKEN')})
     if r.status_code != 200:
         return None
     else:
@@ -74,7 +73,7 @@ def update_author(author):
         return author.toJSON()
     
     info = author.toJSON()
-    with session_scope() as session:
+    with db.session_scope() as session:
         old_facts = info['facts']
         attrs = set(new_facts.keys())
         attrs = attrs.union(old_facts.keys())
@@ -171,10 +170,10 @@ def harvest_author_info(orcidid, name=None, facts=None):
     r = requests.get(
                 '%(endpoint)s?q=%(query)s&fl=author,author_norm,orcid_pub&rows=100&sort=pubdate+desc' % \
                 {
-                 'endpoint': config.get('API_SOLR_QUERY_ENDPOINT'),
+                 'endpoint': app.conf.get('API_SOLR_QUERY_ENDPOINT'),
                  'query' : 'orcid_pub:%s' % cleanup_orcidid(orcidid),
                 },
-                headers={'Authorization': 'Bearer %s' % config.get('API_TOKEN')})
+                headers={'Authorization': 'Bearer %s' % app.conf.get('API_TOKEN')})
     
     if r.status_code != 200:
         app.logger.error('Failed getting data from our own API! (err: %s)' % r.status_code)

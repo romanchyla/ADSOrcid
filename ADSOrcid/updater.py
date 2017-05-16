@@ -6,12 +6,11 @@ Library for updating papers (db claims/records).
 import Levenshtein
 from . import matcher
 from .exceptions import IgnorableException
-import app
 import json
 from .models import Records
 from .utils import get_date
+from . import app, db
 from ADSOrcid.models import ClaimsLog
-from app import config
 from sqlalchemy.sql.expression import and_
 import requests
 import cachetools
@@ -29,9 +28,9 @@ def retrieve_metadata(bibcode, search_identifiers=False):
             'q': search_identifiers and 'identifier:"{0}"'.format(bibcode) or 'bibcode:"{0}"'.format(bibcode),
             'fl': 'author,bibcode,identifier'
             }
-    r = requests.get(config.get('API_SOLR_QUERY_ENDPOINT'),
+    r = requests.get(app.conf.get('API_SOLR_QUERY_ENDPOINT'),
          params=params,
-         headers={'Accept': 'application/json', 'Authorization': 'Bearer:%s' % config.get('API_TOKEN')})
+         headers={'Accept': 'application/json', 'Authorization': 'Bearer:%s' % app.conf.get('API_TOKEN')})
     if r.status_code != 200:
         raise Exception('{}\n{}\n{}'.format(r.status_code, params, r.text))
     else:
@@ -61,7 +60,7 @@ def retrieve_record(bibcode):
     """
     Gets a record from the database (creates one if necessary)
     """
-    with app.session_scope() as session:
+    with db.session_scope() as session:
         r = session.query(Records).filter_by(bibcode=bibcode).first()
         if r is None:
             r = Records(bibcode=bibcode)
@@ -94,7 +93,7 @@ def record_claims(bibcode, claims, authors=None):
     if authors and not isinstance(authors, basestring):
         authors = json.dumps(authors)
         
-    with app.session_scope() as session:
+    with db.session_scope() as session:
         if not isinstance(claims, basestring):
             claims = json.dumps(claims)
         r = session.query(Records).filter_by(bibcode=bibcode).first()
@@ -126,7 +125,7 @@ def mark_processed(bibcode):
     :return: None
     """
     
-    with app.session_scope() as session:
+    with db.session_scope() as session:
         r = session.query(Records).filter_by(bibcode=bibcode).first()
         if r is None:
             raise IgnorableException('Nonexistant record for {0}'.format(bibcode))
@@ -238,19 +237,19 @@ def find_orcid_position(authors_list, name_variants):
     if len(res) == 0:
         return -1
     
-    if res[0][0] < app.config.get('MIN_LEVENSHTEIN_RATIO', 0.9):
+    if res[0][0] < app.conf.get('MIN_LEVENSHTEIN_RATIO', 0.9):
         # test submatch (0.6470588235294118, 19, 0) (required:0.69) closest: vernetto, s, variant: vernetto, silvia teresa
         author_name = al[res[0][1]]
         variant_name = nv[res[0][2]]
         if author_name in variant_name or variant_name in author_name:
             app.logger.debug(u'Using submatch for: %s (required:%s) closest: %s, variant: %s' \
-                        % (res[0], app.config.get('MIN_LEVENSHTEIN_RATIO', 0.9), 
+                        % (res[0], app.conf.get('MIN_LEVENSHTEIN_RATIO', 0.9), 
                            unicode(author_name, 'utf-8'), 
                            unicode(variant_name, 'utf-8')))
             return res[0][1]
             
         app.logger.debug(u'No match found: the closest is: %s (required:%s) closest: %s, variant: %s' \
-                        % (res[0], app.config.get('MIN_LEVENSHTEIN_RATIO', 0.9), 
+                        % (res[0], app.conf.get('MIN_LEVENSHTEIN_RATIO', 0.9), 
                            unicode(author_name, 'utf-8'), 
                            unicode(variant_name, 'utf-8')))
         return -1
@@ -280,7 +279,7 @@ def reindex_all_claims(orcidid, since=None, ignore_errors=False):
     last_check = get_date(since or '1974-11-09T22:56:52.518001Z')
     recs_modified = set()
     
-    with app.session_scope() as session:
+    with db.session_scope() as session:
         author = matcher.retrieve_orcid(orcidid)
         claimed = set()
         removed = set()
@@ -292,7 +291,7 @@ def reindex_all_claims(orcidid, since=None, ignore_errors=False):
             elif claim.status == 'removed':
                 removed.add(claim.bibcode)
 
-        with app.session_scope() as session:    
+        with db.session_scope() as session:    
             for bibcode in removed:
                 r = session.query(Records).filter_by(bibcode=bibcode).first()
                 if r is None:
@@ -339,9 +338,9 @@ def get_all_touched_profiles(since='1974-11-09T22:56:52.518001Z'):
     while True:
         # increase the timestamp by one microsec and get new updates
         latest_point = latest_point + timedelta(microseconds=1)
-        r = requests.get(app.config.get('API_ORCID_UPDATES_ENDPOINT') % latest_point.isoformat(),
+        r = requests.get(app.conf.get('API_ORCID_UPDATES_ENDPOINT') % latest_point.isoformat(),
                     params={'fields': ['orcid_id', 'updated', 'created']},
-                    headers = {'Authorization': 'Bearer {0}'.format(app.config.get('API_TOKEN'))})
+                    headers = {'Authorization': 'Bearer {0}'.format(app.conf.get('API_TOKEN'))})
     
         if r.status_code != 200:
             raise Exception(r.text)

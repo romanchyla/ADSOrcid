@@ -1,80 +1,365 @@
-"""
-The main application object (it has to be loaded by any worker/script)
-in order to initialize the database and get a working configuration.
-"""
+from __future__ import absolute_import, unicode_literals
+from celery import Celery
+from celery.utils.log import get_task_logger
+from celery import Task
+import traceback
+from kombu import Exchange, Queue
+import math
 
-from contextlib import contextmanager
-from sqlalchemy.orm import scoped_session
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy import create_engine
+from ADSOrcid import db, utils
+from ADSOrcid.exceptions import ProcessingException, IgnorableException
+from ADSOrcid import matcher, updater, importer
+from ADSOrcid.models import KeyValue
+import datetime
+import requests
 
-from . import utils
-import os
-import sys
-
-config = {}
-session = None
-logger = None
+logger = utils.setup_logging('app', 'ADSOrcid')
+conf = utils.load_config()
+app = Celery('ADSOrcid',
+             broker=conf.get('CELERY_BROKER', 'pyamqp://'),
+             include=['ADSOrcid.app'])
 
 
-def init_app(local_config=None):
-    """This function must be called before you start working with the application
-    (or worker, script etc)
+exch = Exchange(conf.get('CELERY_DEFAULT_EXCHANGE', 'ads-orcid'), type=conf.get('CELERY_DEFAULT_EXCHANGE_TYPE', 'topic'))
+
+app.conf.CELERY_QUEUES = (
+    Queue('errors', exch, routing_key='errors', durable=False, message_ttl=24*3600*5),
+    Queue('new-claim', exch, routing_key='new-claim'),
+    Queue('verified-claim', exch, routing_key='verified-claim'),
+    Queue('output', exch, routing_key='output'),
+)
+
+app.conf.update(conf)
+db.init_app()
+
+class MyTask(Task):
+    def on_failure(self, exc, task_id, args, kwargs, einfo):
+        logger.error('{0!r} failed: {1!r}'.format(task_id, exc))
+
+
+
+@app.task(base=MyTask, queue='check-orcidid')
+def task_index_orcid_profile(message):
+    """
+    Fetch a fresh profile from the orcid-service and compare
+    it against the state of the storage (diff). And re-index/update
+    them.
     
-    :return None
+
+    :param message: contains the message inside the packet
+        {
+         'orcidid': '.....',
+         'start': 'ISO8801 formatted date (optional), indicates 
+             the moment we checked the orcid-service'
+         'force': Boolean (if present, we'll not skip unchanged
+             profile)
+        }
+    :return: no return
     """
     
-    if session is not None: # the app was already instantiated
+    if 'orcidid' not in message:
+        raise IgnorableException('Received garbage: {}'.format(message))
+    
+    message['start'] = utils.get_date()
+    orcidid = message['orcidid']
+
+    orcid_present, updated, removed = importer.get_claims(orcidid,
+                         app.conf.get('API_TOKEN'), 
+                         app.conf.get('API_ORCID_EXPORT_PROFILE') % orcidid,
+                         force=message.get('force', False),
+                         orcid_identifiers_order=app.conf.get('ORCID_IDENTIFIERS_ORDER', {'bibcode': 9, '*': -1})
+                         )
+    
+    if not updated and not removed:
+        # reschedule re-check
+        task_index_orcid_profile.apply_async(message, countdown = app.conf.get('ORCID_PROFILE_RECHECK_WINDOW', 3600*24))
         return
+    
+    to_claim = []
+    
+    #always insert a record that marks the beginning of a full-import
+    #TODO: record orcid's last-modified-date
+    to_claim.append(importer.create_claim(bibcode='', 
+                                              orcidid=orcidid, 
+                                              provenance='OrcidImporter', 
+                                              status='#full-import',
+                                              date=utils.get_date()
+                                              ))
+    
+    # find difference between what we have and what orcid has
+    claims_we_have = set(updated.keys()).difference(set(removed.keys()))
+    claims_orcid_has = set(orcid_present.keys())
+    
+    # those guys will be added (with ORCID date signature)
+    for c in claims_orcid_has.difference(claims_we_have):
+        claim = orcid_present[c]
+        to_claim.append(importer.create_claim(bibcode=claim[0], 
+                                              orcidid=orcidid, 
+                                              provenance=claim[2], 
+                                              status='claimed', 
+                                              date=claim[1])
+                                              )
+    
+    # those guys will be removed (since orcid doesn't have them)
+    for c in claims_we_have.difference(claims_orcid_has):
+        claim = updated[c]
+        to_claim.append(importer.create_claim(bibcode=claim[0], 
+                                              orcidid=orcidid, 
+                                              provenance='OrcidImporter', 
+                                              status='removed')
+                                              )
+        
+    # and those guys will be updated if their creation date is significantly off
+    for c in claims_orcid_has.intersection(claims_we_have):
+        
+        orcid_claim = orcid_present[c]
+        ads_claim = updated[c]
+        
+        delta = orcid_claim[1] - ads_claim[1]
+        if delta.total_seconds() > app.conf.get('ORCID_UPDATE_WINDOW', 60): 
+            to_claim.append(importer.create_claim(bibcode=orcid_claim[0], 
+                                              orcidid=orcidid, 
+                                              provenance='OrcidImporter', 
+                                              status='updated',
+                                              date=orcid_claim[1])
+                                              )
+        elif message.get('force', False):
+            to_claim.append(importer.create_claim(bibcode=orcid_claim[0], 
+                                              orcidid=orcidid, 
+                                              provenance='OrcidImporter', 
+                                              status='forced',
+                                              date=orcid_claim[1])
+                                              )
+        else:
+            to_claim.append(importer.create_claim(bibcode=orcid_claim[0], 
+                                              orcidid=orcidid, 
+                                              provenance='OrcidImporter', 
+                                              status='unchanged',
+                                              date=orcid_claim[1]))
 
-    config.update(utils.load_config())
-    if local_config:
-        config.update(local_config)
-    
-    global logger, session
-    logger = utils.setup_logging(__file__, 'app', config['LOGGING_LEVEL'])
-    engine = create_engine(config.get('SQLALCHEMY_URL', 'sqlite:///'),
-                           echo=config.get('SQLALCHEMY_ECHO', False))
-    session_factory = sessionmaker()
-    
-    session = scoped_session(session_factory)
-    session.configure(bind=engine)
+    if len(to_claim):
+        # create record in the database
+        json_claims = importer.insert_claims(to_claim)
+        # set to the queue for processing
+        for claim in json_claims:
+            claim['bibcode_verified'] = True
+            task_ingest_claim.delay(claim)
+            
+    # reschedule future check
+    task_index_orcid_profile.apply_async(message, countdown = app.conf.get('ORCID_PROFILE_RECHECK_WINDOW', 3600*24))
 
-def close_app():
-    """Closes the app"""
-    global logger, session
-    session = None
-    logger = None
-    config.clear()
 
-    
-@contextmanager
-def session_scope():
-    """Provides a transactional session - ie. the session for the 
-    current thread/work of unit. The application has to be properly
-    initialized before you use method. See :object: 
-    `ADSOrcid.app.session`
-    
-    Use as:
-    
-        with session_scope() as session:
-            o = AuthorInfo(...)
-            session.add(o)
+
+@app.task(base=MyTask, queue='record-claim')
+def task_ingest_claim(msg, **kwargs):
     """
+    Processes claims in the system; it enhances the claim
+    with the information about the claimer. (and in the
+    process, updates our knowledge about the ORCIDID).
+    
+    Results are published into the queue 'verified-claim'
+    
+    :param msg: contains the message inside the packet
+        {'bibcode': '....',
+        'orcidid': '.....',
+        'provenance': 'string (optional)',
+        'status': 'claimed|updated|deleted (optional)',
+        'date': 'ISO8801 formatted date (optional)'
+        }
+    :return: no return
+    """
+    
+    if not isinstance(msg, dict):
+        raise ProcessingException('Received unknown payload {0}'.format(msg))
+    
+    if not msg.get('orcidid'):
+        raise ProcessingException('Unusable payload, missing orcidid {0}'.format(msg))
 
-    if session is None:
-        raise Exception('init_app() must be called before you can use the session')
+    if msg.get('status', 'created') in ('unchanged', '#full-import'):
+        return
+                    
+    author = matcher.retrieve_orcid(msg['orcidid'])
     
-    # create local session (optional step)
-    s = session()
+    if not author:
+        raise ProcessingException('Unable to retrieve info for {0}'.format(msg['orcidid']))
     
-    try:
-        yield s
-        s.commit()
-    except:
-        s.rollback()
-        raise
-    finally:
-        s.close()        
+    # clean up the bicode
+    bibcode = msg['bibcode'].strip()
+    
+    if not msg.get('bibcode_verified', False):
+        if ' ' in bibcode:
+            parts = bibcode.split()
+            l = [len(x) for x in parts]
+            if 19 in l:
+                bibcode = parts[l.index(19)] 
+        
+        # check if we can translate the bibcode/identifier
+        rec = updater.retrieve_metadata(bibcode)
+        if rec.get('bibcode') != bibcode:
+            logger.warning('Resolving {0} into {1}'.format(bibcode, rec.get('bibcode')))
+        bibcode = rec.get('bibcode') 
+    
+    msg['bibcode'] = bibcode
+    msg['name'] = author['name']
+    if author.get('facts', None):
+        for k, v in author['facts'].iteritems():
+            msg[k] = v
+            
+    msg['author_status'] = author['status']
+    msg['account_id'] = author['account_id']
+    msg['author_updated'] = author['updated']
+    msg['author_id'] = author['id']
+    
+    if msg['author_status'] in ('blacklisted', 'postponed'):
+        return
+    
+    task_match_claim.delay(msg)
+
+
+
+@app.task(base=MyTask, queue='match-claim')
+def task_match_claim(claim, **kwargs):
+    """
+    Takes the claim, matches it in the database (will create
+    entry for the record, if not existing yet) and updates 
+    the metadata.
+    
+    :param claim: contains the message inside the packet
+        {'bibcode': '....',
+        'orcidid': '.....',
+        'name': 'author name',
+        'facts': 'author name variants',
+        }
+    :return: no return
+    """
+    
+    if not isinstance(claim, dict):
+        raise ProcessingException('Received unknown payload {0}'.format(claim))
+    
+    if not claim.get('orcidid'):
+        raise ProcessingException('Unusable payload, missing orcidid {0}'.format(claim))
+
+    bibcode = claim['bibcode']
+    rec = updater.retrieve_record(bibcode)
+    
+    
+    cl = updater.update_record(rec, claim)
+    if cl:
+        updater.record_claims(bibcode, rec['claims'], rec['authors'])
+        # TODO: call directly? circumvent the queue?
+        task_output_results.delay({'authors': rec.get('authors'), 'bibcode': rec['bibcode'], 'claims': rec.get('claims')})
+    else:
+        logger.warning('Claim refused for bibcode:{0} and orcidid:{1}'
+                        .format(claim['bibcode'], claim['orcidid']))
+
+
+@app.task(base=MyTask, queue='output-results')
+def task_output_results(producer, msg):
+    """
+    This worker will forward results to the outside 
+    exchange (typically an ADSImportPipeline) to be
+    incorporated into the storage
+    """
+    Task.apply_async(args=('orcid_claims', msg),
+                     exchange=app.conf.get('OUTPUT_EXCHANGE', 'import-pipeline'),
+                     queue=app.conf.get('OUTPUT_QUEUE', 'update-record'),
+                     routing_key=app.conf.get('OUTPUT_QUEUE', 'update-record'))
+
+
+
+@app.task(base=MyTask, queue='errors')
+def task_handle_errors(producer, message, redelivered=False):
+    """
+    @param producer: string, the name of the queue where the error originated
+    @param body: 
+    """
+    
+    logger.error(u'\nproducer={}\nmsg={}\n'.format(producer, message))
+    
     
 
+
+@app.task(base=MyTask, queue='check-updates')
+def task_check_orcid_profiles(msg):
+    """Check the orcid microservice for updated orcid profiles.
+    
+    This function is somewhat complex
+    we are trying to defend against multiple executions (assuming 
+    that there is many workers and each of them can receive its own
+    signal to start processing). 
+    
+    Basically, we'll only want to check for updated profiles once.
+    And the synchronization is done via a database. So the worker
+    must update the 'last.check' timestamp immediately (and we
+    'optimistically' hope that it will be enough to prevent clashes;
+    well - even if that is not a strong guarantee, it wouldn't be 
+    a tragedy if a profile is checked twice...)
+    
+    Additional difficulty is time synchronization: the worker can 
+    be executed as often as you like, but it will refuse to do any
+    work unless the time window between the checks is large enough.
+    """
+    
+    with db.session_scope() as session:
+        kv = session.query(KeyValue).filter_by(key='last.check').first()
+        if kv is None:
+            kv = KeyValue(key='last.check', value='1974-11-09T22:56:52.518001Z') #force update
+        
+        latest_point = utils.get_date(kv.value) # RFC 3339 format
+        now = utils.get_date()
+        
+        total_wait = app.conf.get('ORCID_CHECK_FOR_CHANGES', 60*5) #default is 5min
+        delta = now - latest_point
+        
+        if delta.total_seconds() < total_wait:
+            # register our own execution in the future
+            task_check_orcid_profiles.apply_async(msg, countdown=(total_wait - delta.total_seconds()) + 1)
+        else:
+            logger.info("Checking for orcid updates")
+            
+            # increase the timestamp by one microsec and get new updates
+            latest_point = latest_point + datetime.timedelta(microseconds=1)
+            r = requests.get(app.conf.get('API_ORCID_UPDATES_ENDPOINT') % latest_point.isoformat(),
+                        params={'fields': ['orcid_id', 'updated', 'created']},
+                        headers = {'Authorization': 'Bearer {0}'.format(app.conf.get('API_TOKEN'))})
+            
+            if r.status_code != 200:
+                logger.error('Failed getting {0}\n{1}'.format(
+                            app.conf.get('API_ORCID_UPDATES_ENDPOINT') % kv.value,
+                            r.text))
+                msg['errcount'] = msg.get('errcount', 0) + 1
+                
+                # schedule future execution offset by number of errors (rca: do exponential?)
+                task_check_orcid_profiles.apply_async(msg, countdown = total_wait * msg['errcount'])
+                return
+            
+            
+            if r.text.strip() == "":
+                return task_check_orcid_profiles.apply_async(msg, countdown = total_wait)
+            
+            data = r.json()
+            
+            if len(data) == 0:
+                return task_check_orcid_profiles.apply_async(msg, countdown = total_wait)
+            
+            msg['errcount'] = 0 # success, we got data from the api, reset the counter
+
+            # we received the data, immediately update the databaes (so that other processes don't 
+            # ask for the same starting date)            
+            # data should be ordered by date updated (but to be sure, let's check it); we'll save it
+            # as latest 'check point'
+            dates = [utils.get_date(x['updated']) for x in data]
+            dates = sorted(dates, reverse=True)
+            
+            kv.value = dates[0].isoformat()
+            session.merge(kv)
+            session.commit()
+            
+            for rec in data:
+                payload = {'orcidid': rec['orcid_id'], 'start': latest_point.isoformat()}
+                task_index_orcid_profile.delay(payload)
+    
+
+
+if __name__ == '__main__':
+    app.start()
