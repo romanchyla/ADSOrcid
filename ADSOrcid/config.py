@@ -54,6 +54,7 @@ POLL_INTERVAL = 15  # per-worker poll interval (to check health) in seconds.
 # messages. Ie. if rabbitmq goes down/restarted, the uncomsumed messages will
 # still be there 
 EXCHANGE = 'ads-orcid'
+CELERY_INCLUDE = ['ADSOrcid.app']
 
 WORKERS = {
     'OrcidImporter': {
@@ -63,21 +64,21 @@ WORKERS = {
         'error': 'ads.orcid.error',
         'durable': True
     },
-    'ClaimsIngester': {
+    'ClaimsIngester': { #done
         'concurrency': 1,
         'subscribe': 'ads.orcid.claims',
         'publish': 'ads.orcid.updates',
         'error': 'ads.orcid.error',
         'durable': True
     },
-    'ClaimsRecorder': {
+    'ClaimsRecorder': { # done
         'concurrency': 5,
         'subscribe': 'ads.orcid.updates',
         'publish': 'ads.orcid.output',
         'error': 'ads.orcid.error',
         'durable': True
     },
-    'OutputHandler': {
+    'OutputHandler': { # done
         'subscribe': 'ads.orcid.output',
         'publish': None,
         'durable': True,

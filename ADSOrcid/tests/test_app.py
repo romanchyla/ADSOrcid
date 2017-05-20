@@ -4,6 +4,21 @@
 """
 Unit tests of the project. Each function related to the workers individual tools
 are tested in this suite. There is no communication.
+
+        config = utils.load_config()
+        
+        #update PROJ_HOME since normally it is run from higher leve
+        config['PROJ_HOME'] = os.path.abspath(config['PROJ_HOME'] + '/..')
+        
+        config['TEST_UNIT_DIR'] = os.path.join(config['PROJ_HOME'],
+                         'ADSOrcid/tests/test_unit')
+        config['TEST_INTGR_DIR'] = os.path.join(config['PROJ_HOME'],
+                         'ADSOrcid/tests/test_integration')
+        config['TEST_FUNC_DIR'] = os.path.join(config['PROJ_HOME'],
+                         'ADSOrcid/tests/test_functional')
+
+        self.app = self.create_app()
+        self.app.config.update(config)
 """
 
 
@@ -19,105 +34,31 @@ import httpretty
 import mock
 from io import BytesIO
 from datetime import datetime
+from ADSOrcid import app
+from ADSOrcid.models import ClaimsLog, Records, AuthorInfo, Base, ChangeLog
 
-from ADSOrcid.utils import get_date 
-from ADSOrcid.tests import test_base
-from ADSOrcid import matcher, app, updater, importer, utils
-from ADSOrcid.models import AuthorInfo, ClaimsLog, Records, Base, ChangeLog
-
-class TestMatcherUpdater(test_base.TestUnit):
+class TestMatcherUpdater(unittest.TestCase):
     """
     Tests the worker's methods
     """
-    
-    def tearDown(self):
-        test_base.TestUnit.tearDown(self)
-        Base.metadata.drop_all()
-        app.close_app()
-    
-    def create_app(self):
-        app.init_app({
+    def setUp(self):
+        unittest.TestCase.setUp(self)
+        self.app = app.create_app('test',
+            {
             'SQLALCHEMY_URL': 'sqlite:///',
             'SQLALCHEMY_ECHO': False
-        })
-        Base.metadata.bind = app.session.get_bind()
+            })
+        Base.metadata.bind = self.app._session.get_bind()
         Base.metadata.create_all()
-        return app
     
-    def test_get_date(self):
-        """Check we always work with UTC dates"""
-        
-        d = utils.get_date()
-        self.assertTrue(d.tzname() == 'UTC')
-        
-        d1 = utils.get_date('2009-09-04T01:56:35.450686Z')
-        self.assertTrue(d1.tzname() == 'UTC')
-        self.assertEqual(d1.isoformat(), '2009-09-04T01:56:35.450686+00:00')
-        
-        d2 = utils.get_date('2009-09-03T20:56:35.450686-05:00')
-        self.assertTrue(d2.tzname() == 'UTC')
-        self.assertEqual(d2.isoformat(), '2009-09-04T01:56:35.450686+00:00')
+    
+    def tearDown(self):
+        unittest.TestCase.tearDown(self)
+        Base.metadata.drop_all()
+        self.app.close_app()
+    
+   
 
-        d3 = utils.get_date('2009-09-03T20:56:35.450686')
-        self.assertTrue(d3.tzname() == 'UTC')
-        self.assertEqual(d3.isoformat(), '2009-09-03T20:56:35.450686+00:00')
-
-    def test_models(self):
-        """Check serialization into JSON"""
-        
-        claim = ClaimsLog(bibcode='foo', orcidid='bar',
-                          created='2009-09-03T20:56:35.450686Z')
-        self.assertDictEqual(claim.toJSON(),
-             {'status': None, 'bibcode': 'foo', 'created': '2009-09-03T20:56:35.450686+00:00', 'provenance': 'None', 'orcidid': 'bar', 'id': None})
-        
-        ainfo = AuthorInfo(orcidid='bar',
-                          created='2009-09-03T20:56:35.450686Z')
-        
-        self.assertDictEqual(ainfo.toJSON(),
-             {'status': None, 'updated': None, 'name': None, 'created': '2009-09-03T20:56:35.450686+00:00', 'facts': {}, 'orcidid': 'bar', 'id': None, 'account_id': None})
-        
-        rec = Records(bibcode='foo', created='2009-09-03T20:56:35.450686Z')
-
-        self.assertDictEqual(rec.toJSON(),
-             {'bibcode': 'foo', 'created': '2009-09-03T20:56:35.450686+00:00', 'updated': None, 'processed': None, 'claims': {}, 'id': None, 'authors': []})
-        
-        with self.assertRaisesRegexp(Exception, 'IntegrityError'):
-            with app.session_scope() as session:
-                c = ClaimsLog(bibcode='foo', orcidid='bar', status='hey')
-                session.add(c)
-                session.commit()
-        
-        for s in ['blacklisted', 'postponed']:
-            with app.session_scope() as session:
-                session.add(AuthorInfo(orcidid='bar' + s, status=s))
-                session.commit()
-        
-        with self.assertRaisesRegexp(Exception, 'IntegrityError'):
-            with app.session_scope() as session:
-                c = AuthorInfo(orcidid='bar', status='hey')
-                session.add(c)
-                session.commit()
-        
-        for s in ['claimed', 'updated', 'removed', 'unchanged', '#full-import']:
-            with app.session_scope() as session:
-                session.add(ClaimsLog(bibcode='foo'+s, orcidid='bar', status=s))
-                session.commit()
-                
-    def test_dates(self):
-        '''We want to use only UTC dates'''
-        
-        with self.assertRaisesRegexp(Exception, 'ValueError'):
-            with app.session_scope() as session:
-                rec = Records(bibcode='foo', created='2009-09-03T20:56:35.450686Z')
-                session.add(rec)
-                rec.updated = datetime.now()
-                session.commit()
-
-        with app.session_scope() as session:
-            rec = Records(bibcode='foo', created='2009-09-03T20:56:35.450686Z')
-            session.add(rec)
-            rec.updated = get_date()
-            session.commit()
 
     @httpretty.activate
     def test_harvest_author_info(self):
@@ -125,7 +66,7 @@ class TestMatcherUpdater(test_base.TestUnit):
         We have to be able to verify orcid against orcid api
         and also collect data from SOLR (author names)
         """
-        
+        app = self.app
         orcidid = '0000-0003-2686-9241'
         
         httpretty.register_uri(
@@ -141,7 +82,7 @@ class TestMatcherUpdater(test_base.TestUnit):
             content_type='application/json',
             body=open(os.path.join(self.app.config['TEST_UNIT_DIR'], 'stub_data', orcidid + '.solr.json')).read())
         
-        data = matcher.harvest_author_info(orcidid)
+        data = app.harvest_author_info(orcidid)
         self.assertDictEqual(data, {'orcid_name': [u'Stern, Daniel'],
                                     'author': [u'Stern, A D',
                                                u'Stern, Andrew D',
@@ -159,14 +100,14 @@ class TestMatcherUpdater(test_base.TestUnit):
     
     def test_create_orcid(self):
         """Has to create AuthorInfo and populate it, but not add to database"""
-        
+        app = self.app
         with mock.patch('ADSOrcid.matcher.harvest_author_info', return_value= {'orcid_name': [u'Stern, Daniel'],
                                     'author': [u'Stern, D', u'Stern, D K', u'Stern, Daniel'],
                                     'author_norm': [u'Stern, D'],
                                     'name': u'Stern, D K'
                                     }
                 ) as context:
-            res = matcher.create_orcid('0000-0003-2686-9241')
+            res = app.create_orcid('0000-0003-2686-9241')
             self.assertIsInstance(res, AuthorInfo)
             self.assertEqual(res.name, 'Stern, D K')
             self.assertEqual(res.orcidid, '0000-0003-2686-9241')
@@ -177,14 +118,14 @@ class TestMatcherUpdater(test_base.TestUnit):
  
     def test_retrive_orcid(self):
         """Has to find and load/or create ORCID data"""
-        
+        app = self.app
         with mock.patch('ADSOrcid.matcher.harvest_author_info', return_value= {'orcid_name': [u'Stern, Daniel'],
                                     'author': [u'Stern, D', u'Stern, D K', u'Stern, Daniel'],
                                     'author_norm': [u'Stern, D'],
                                     'name': u'Stern, D K'
                                     }
                 ) as context:
-            author = matcher.retrieve_orcid('0000-0003-2686-9241')
+            author = app.retrieve_orcid('0000-0003-2686-9241')
             self.assertDictContainsSubset({'status': None, 
                                            'name': u'Stern, D K', 
                                            'facts': {u'author': [u'Stern, D', u'Stern, D K', u'Stern, Daniel'], u'orcid_name': [u'Stern, Daniel'], u'author_norm': [u'Stern, D'], u'name': u'Stern, D K'}, 
@@ -198,7 +139,7 @@ class TestMatcherUpdater(test_base.TestUnit):
     
     def test_update_author(self):
         """Has to update AuthorInfo and also create a log of events about the changes."""
-        
+        app = self.app
         # bootstrap the db with already existing author info
         with app.session_scope() as session:
             ainfo = AuthorInfo(orcidid='0000-0003-2686-9241',
@@ -219,10 +160,10 @@ class TestMatcherUpdater(test_base.TestUnit):
                                         'name': u'Sternx, D K'
                                         }
                     ) as context:
-                matcher.cache.clear()
-                matcher.orcid_cache.clear()
-                matcher.ads_cache.clear()
-                author = matcher.retrieve_orcid('0000-0003-2686-9241')
+                app.cache.clear()
+                app.orcid_cache.clear()
+                app.ads_cache.clear()
+                author = app.retrieve_orcid('0000-0003-2686-9241')
                 self.assertDictContainsSubset({'status': None, 
                                                'name': u'Sternx, D K', 
                                                'facts': {u'author': [u'Stern, D', u'Stern, D K', u'Sternx, Daniel'], u'orcid_name': [u'Sternx, Daniel'], u'author_norm': [u'Stern, D'], u'name': u'Sternx, D K'}, 
@@ -247,10 +188,10 @@ class TestMatcherUpdater(test_base.TestUnit):
                                         'authorized': True
                                         }
                     ) as context:
-                matcher.cache.clear()
-                matcher.orcid_cache.clear()
-                matcher.ads_cache.clear()
-                author = matcher.retrieve_orcid('0000-0003-2686-9241')
+                app.cache.clear()
+                app.orcid_cache.clear()
+                app.ads_cache.clear()
+                author = app.retrieve_orcid('0000-0003-2686-9241')
                 self.assertDictContainsSubset({'status': None, 
                                                'name': u'Sternx, D K', 
                                                'facts': {u'authorized': True, u'name': u'Sternx, D K'}, 
@@ -275,7 +216,7 @@ class TestMatcherUpdater(test_base.TestUnit):
 
         :return: no return
         """
-        
+        app = self.app
         doc = {
             'bibcode': '2015ApJ...799..123B', 
             'authors': [
@@ -296,7 +237,7 @@ class TestMatcherUpdater(test_base.TestUnit):
             ],
             'claims': {}
         }
-        r = updater.update_record(
+        r = app.update_record(
           doc,
           {
            'bibcode': '2015ApJ...799..123B', 
@@ -312,7 +253,7 @@ class TestMatcherUpdater(test_base.TestUnit):
         self.assertEqual(doc['claims']['verified'], 
             ['-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '0000-0003-2686-9241', '-'])
         
-        updater.update_record(
+        app.update_record(
           doc,
           {
            'bibcode': '2015ApJ...799..123B', 
@@ -330,7 +271,7 @@ class TestMatcherUpdater(test_base.TestUnit):
         
         # the size differs
         doc['claims']['verified'] = ['-']
-        r = updater.update_record(
+        r = app.update_record(
           doc,
           {
            'bibcode': '2015ApJ...799..123B', 
@@ -357,8 +298,8 @@ class TestMatcherUpdater(test_base.TestUnit):
 
         :return: no return
         """
-        
-        res = updater.find_orcid_position([
+        app = self.app
+        res = app.find_orcid_position([
               "Barrière, Nicolas M.",
               "Krivonos, Roman",
               "Tomsick, John A.",
@@ -381,7 +322,7 @@ class TestMatcherUpdater(test_base.TestUnit):
         # check that the author cannot claim what doesn't look like their 
         # own paper
         
-        res = updater.find_orcid_position([
+        res = app.find_orcid_position([
                "Erdmann, Christopher",
                "Frey, Katie"
                ], 
@@ -389,13 +330,13 @@ class TestMatcherUpdater(test_base.TestUnit):
         self.assertEqual(res, -1)
         
         # check boundaries
-        res = updater.find_orcid_position([
+        res = app.find_orcid_position([
                "Erdmann, Christopher",
                "Frey, Katie"
                ], 
               ["Erdmann, C"]);
         self.assertEqual(res, 0)
-        res = updater.find_orcid_position([
+        res = app.find_orcid_position([
                "Erdmann, Christopher",
                "Cote, Ann",
                "Frey, Katie"
@@ -405,21 +346,22 @@ class TestMatcherUpdater(test_base.TestUnit):
 
     def test_update_database(self):
         """Inserts a record (of claims) into the database"""
-        updater.record_claims('bibcode', {'verified': ['foo', '-', 'bar'], 'unverified': ['-', '-', '-']})
+        app = self.app
+        app.record_claims('bibcode', {'verified': ['foo', '-', 'bar'], 'unverified': ['-', '-', '-']})
         with app.session_scope() as session:
             r = session.query(Records).filter_by(bibcode='bibcode').first()
             self.assertEquals(json.loads(r.claims), {'verified': ['foo', '-', 'bar'], 'unverified': ['-', '-', '-']})
             self.assertTrue(r.created == r.updated)
             self.assertFalse(r.processed)
             
-        updater.record_claims('bibcode', {'verified': ['foo', 'zet', 'bar'], 'unverified': ['-', '-', '-']})
+        app.record_claims('bibcode', {'verified': ['foo', 'zet', 'bar'], 'unverified': ['-', '-', '-']})
         with app.session_scope() as session:
             r = session.query(Records).filter_by(bibcode='bibcode').first()
             self.assertEquals(json.loads(r.claims), {'verified': ['foo', 'zet', 'bar'], 'unverified': ['-', '-', '-']})
             self.assertTrue(r.created != r.updated)
             self.assertFalse(r.processed)
         
-        updater.mark_processed('bibcode')
+        app.mark_processed('bibcode')
         with app.session_scope() as session:
             r = session.query(Records).filter_by(bibcode='bibcode').first()
             self.assertTrue(r.processed)
@@ -475,14 +417,6 @@ class TestMatcherUpdater(test_base.TestUnit):
         self.assertTrue(len(self.app.session.query(ClaimsLog)
                             .filter_by(bibcode='b123456789123456789').all()) == 3)
         
-    def test_build_short_forms(self):
-        """Get name variants"""
-        self.assertEquals(matcher._build_short_forms('porceddu,'), [])
-        self.assertEquals(matcher._build_short_forms('porceddu, i'), [])
-        self.assertEquals(matcher._build_short_forms('porceddu, i. enrico pietro'),
-                          ['porceddu, i enrico p', 'porceddu, i e pietro', 'porceddu, i e', 'porceddu, i', 'porceddu, i e p'])
-        self.assertEquals(matcher._build_short_forms('porceddu, ignazio enrico pietro'),
-                          ['porceddu, ignazio enrico p', 'porceddu, i e', 'porceddu, i enrico pietro', 'porceddu, i', 'porceddu, ignazio e pietro', 'porceddu, i e p'])
-        
+    
 if __name__ == '__main__':
     unittest.main()
