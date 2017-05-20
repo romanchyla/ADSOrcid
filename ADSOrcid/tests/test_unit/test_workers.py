@@ -190,6 +190,7 @@ class TestWorkers(test_base.TestUnit):
                                [u'Mishra, R', u'Goswami, J', u'Tachibana, S', u'Huss, G', u'Rudraswami, N'])
         self.assertEqual(r, True, "Too lenient comparison")
 
+
 if __name__ == '__main__':
     unittest.main()        
         
