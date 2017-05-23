@@ -208,6 +208,7 @@ class OrcidImporter(GenericWorker.RabbitMQWorker):
             # now get info about each record #TODO: enhance the matching (and refactor)
             # we'll try to match identifiers against our own API; if a document is found
             # it will be added to the `orcid_present` with corresponding timestamp (cdate)
+            num_errors = 0
             orcid_present = {}
             for w in works:
                 bibc = None
@@ -239,6 +240,7 @@ class OrcidImporter(GenericWorker.RabbitMQWorker):
                         except Exception, e:
                             self.logger.error('Exception while searching for matching bibcode for: {}'.format(fvalue))
                             self.logger.warning(e.message)
+                            num_errors += 1
                             
                     
                     if bibc:
@@ -258,11 +260,13 @@ class OrcidImporter(GenericWorker.RabbitMQWorker):
                     self.logger.warning('Error processing a record: '
                         '{0} ({1})'.format(w,
                                            traceback.format_exc()))
+                    num_errors += 1
                     continue
                 except TypeError, e:
                     self.logger.warning('Error processing a record: '
                         '{0} ({1})'.format(w,
                                            traceback.format_exc()))
+                    num_errors += 1
                     continue
 
             
@@ -283,6 +287,18 @@ class OrcidImporter(GenericWorker.RabbitMQWorker):
                     if bibc in removed:
                         del removed[bibc]
             
+            # find difference between what we have and what orcid has
+            claims_we_have = set(updated.keys()).difference(set(removed.keys()))
+            claims_orcid_has = set(orcid_present.keys())
+            
+            
+            # this is a temporary solution to the mystery of disappearing ORCID claims
+            if len(claims_orcid_has) == 0 and len(claims_we_have) > 0:
+                self.logger.warning('Stopped myself from removing all claims: {orcidid}.\n' +
+                                    'num_errors={ne}, len(claims_we_have)={lenc}'.format(ne=num_errors,
+                                                                     lenc=len(claims_we_have)))
+                return
+            
             #always insert a record that marks the beginning of a full-import
             #TODO: record orcid's last-modified-date
             to_claim.append(importer.create_claim(bibcode='', 
@@ -292,9 +308,6 @@ class OrcidImporter(GenericWorker.RabbitMQWorker):
                                                       date=updt
                                                       ))
             
-            # find difference between what we have and what orcid has
-            claims_we_have = set(updated.keys()).difference(set(removed.keys()))
-            claims_orcid_has = set(orcid_present.keys())
             
             # those guys will be added (with ORCID date signature)
             for c in claims_orcid_has.difference(claims_we_have):
