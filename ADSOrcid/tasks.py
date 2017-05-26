@@ -1,9 +1,9 @@
 
+from __future__ import absolute_import, unicode_literals
 from ADSOrcid import app as app_module
 from ADSOrcid import utils, updater
 from ADSOrcid.exceptions import ProcessingException, IgnorableException
 from ADSOrcid.models import KeyValue
-from __future__ import absolute_import, unicode_literals
 from celery import Task
 from celery.utils.log import get_task_logger
 from kombu import Exchange, Queue
@@ -142,8 +142,9 @@ def task_index_orcid_profile(message):
         json_claims = app.insert_claims(to_claim)
         # set to the queue for processing
         for claim in json_claims:
-            claim['bibcode_verified'] = True
-            task_ingest_claim.delay(claim)
+            if claim.get('bibcode'):
+                claim['bibcode_verified'] = True
+                task_ingest_claim.delay(claim)
             
     # reschedule future check
     task_index_orcid_profile.apply_async(message, countdown = app.conf.get('ORCID_PROFILE_RECHECK_WINDOW', 3600*24))
@@ -186,6 +187,7 @@ def task_ingest_claim(msg, **kwargs):
     # clean up the bicode
     bibcode = msg['bibcode'].strip()
     
+    # translate the bibcode into canonical (unless we are told not to...)
     if not msg.get('bibcode_verified', False):
         if ' ' in bibcode:
             parts = bibcode.split()
@@ -196,7 +198,7 @@ def task_ingest_claim(msg, **kwargs):
         # check if we can translate the bibcode/identifier
         rec = app.retrieve_metadata(bibcode)
         if rec.get('bibcode') != bibcode:
-            record_claim_logger.warning('Resolving {0} into {1}'.format(bibcode, rec.get('bibcode')))
+            record_claim_logger.warning('Resolved {0} into {1}'.format(bibcode, rec.get('bibcode')))
         bibcode = rec.get('bibcode') 
     
     msg['bibcode'] = bibcode
@@ -343,7 +345,7 @@ def task_check_orcid_updates(msg):
                 msg['errcount'] = msg.get('errcount', 0) + 1
                 
                 # schedule future execution offset by number of errors (rca: do exponential?)
-                task_check_orcid_updates.apply_async(msg, countdown = total_wait * msg['errcount'])
+                task_check_orcid_updates.apply_async(msg, countdown = total_wait + total_wait * msg['errcount'])
                 return
             
             
@@ -371,7 +373,9 @@ def task_check_orcid_updates(msg):
             for rec in data:
                 payload = {'orcidid': rec['orcid_id'], 'start': latest_point.isoformat()}
                 task_index_orcid_profile.delay(payload)
-    
+            
+            # recheck again
+            task_check_orcid_updates.apply_async(msg, countdown = total_wait)
 
 
 if __name__ == '__main__':

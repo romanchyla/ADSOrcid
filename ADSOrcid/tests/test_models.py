@@ -84,3 +84,7 @@ class Test(unittest.TestCase):
             session.add(rec)
             rec.updated = utils.get_date()
             session.commit()
+
+            
+if __name__ == '__main__':
+    unittest.main()            
