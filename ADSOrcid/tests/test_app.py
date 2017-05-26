@@ -4,21 +4,6 @@
 """
 Unit tests of the project. Each function related to the workers individual tools
 are tested in this suite. There is no communication.
-
-        config = utils.load_config()
-        
-        #update PROJ_HOME since normally it is run from higher leve
-        config['PROJ_HOME'] = os.path.abspath(config['PROJ_HOME'] + '/..')
-        
-        config['TEST_UNIT_DIR'] = os.path.join(config['PROJ_HOME'],
-                         'ADSOrcid/tests/test_unit')
-        config['TEST_INTGR_DIR'] = os.path.join(config['PROJ_HOME'],
-                         'ADSOrcid/tests/test_integration')
-        config['TEST_FUNC_DIR'] = os.path.join(config['PROJ_HOME'],
-                         'ADSOrcid/tests/test_functional')
-
-        self.app = self.create_app()
-        self.app.config.update(config)
 """
 
 
@@ -32,21 +17,25 @@ import os
 import math
 import httpretty
 import mock
+from mock import patch
 from io import BytesIO
 from datetime import datetime
 from ADSOrcid import app
 from ADSOrcid.models import ClaimsLog, Records, AuthorInfo, Base, ChangeLog
 
-class TestMatcherUpdater(unittest.TestCase):
+class TestAdsOrcidCelery(unittest.TestCase):
     """
-    Tests the worker's methods
+    Tests the appliction's methods
     """
     def setUp(self):
         unittest.TestCase.setUp(self)
+        proj_home = os.path.abspath(os.path.join(os.path.dirname(__file__), '../..'))
         self.app = app.create_app('test',
             {
             'SQLALCHEMY_URL': 'sqlite:///',
-            'SQLALCHEMY_ECHO': False
+            'SQLALCHEMY_ECHO': False,
+            'PROJ_HOME' : proj_home,
+            'TEST_DIR' : os.path.join(proj_home, 'ADSOrcid/tests'),
             })
         Base.metadata.bind = self.app._session.get_bind()
         Base.metadata.create_all()
@@ -56,10 +45,85 @@ class TestMatcherUpdater(unittest.TestCase):
         unittest.TestCase.tearDown(self)
         Base.metadata.drop_all()
         self.app.close_app()
+
     
-   
+    def test_app(self):
+        assert self.app._config.get('SQLALCHEMY_URL') == 'sqlite:///'
+        assert self.app.conf.get('SQLALCHEMY_URL') == 'sqlite:///'
+
+    def test_create_claim(self):
+        c = self.app.create_claim(bibcode='b123456789123456789', 
+                                          orcidid='0000-0000-0000-0001', 
+                                          status='removed')
+        assert isinstance(c, ClaimsLog)
+        assert c.bibcode == 'b123456789123456789'
+        self.assertTrue(len(self.app._session.query(ClaimsLog)
+                            .filter_by(bibcode='b123456789123456789').all()) == 0)
+        
+        # test what happens when the claim already exists
+        self.app._session.add(c)
+        self.app._session.commit()
+        cid = c.id
+        
+        c = self.app.create_claim(bibcode='b123456789123456789', 
+                                          orcidid='0000-0000-0000-0001', 
+                                          status='claimed',
+                                          date=c.created,
+                                          force_new=False)
+        assert c.status == 'claimed'
+        assert c.id == cid
+
+    
+    def test_insert_claims(self):
+        """
+        It should be able to create a series of claims
+        """
+        r = self.app.insert_claims([
+                    {'bibcode': 'b123456789123456789',
+                     'orcidid': '0000-0000-0000-0001',
+                     'provenance' : 'ads test'},
+                    {'bibcode': 'b123456789123456789',
+                     'orcidid': '0000-0000-0000-0001',
+                     'status' : 'updated'},
+                    self.app.create_claim(bibcode='b123456789123456789', 
+                                          orcidid='0000-0000-0000-0001', 
+                                          status='removed')
+                ])
+        self.assertEquals(len(r), 3)
+        self.assertTrue(len(self.app._session.query(ClaimsLog)
+                            .filter_by(bibcode='b123456789123456789').all()) == 3)
 
 
+    def test_import_recs(self):
+        """It should know how to import bibcode:orcidid pairs
+        :return None
+        """
+        
+        fake_file = BytesIO("\n".join([
+                                 "b123456789123456789\t0000-0000-0000-0001",
+                                 "b123456789123456789\t0000-0000-0000-0002\tarxiv",
+                                 "b123456789123456789\t0000-0000-0000-0003\tarxiv\tclaimed",
+                                 "b123456789123456789\t0000-0000-0000-0004\tfoo        \tclaimed\t2008-09-03T20:56:35.450686Z",
+                                 "b123456789123456789\t0000-0000-0000-0005",
+                                 "b123456789123456789\t0000-0000-0000-0006",
+                                 "b123456789123456789\t0000-0000-0000-0004\tfoo        \tupdated\t2009-09-03T20:56:35.450686Z",
+                                ]))
+        with mock.patch('ADSOrcid.app.open', return_value=fake_file, create=True
+                ) as context:
+            self.app.import_recs(__file__)
+            self.assertTrue(len(self.app._session.query(ClaimsLog).all()) == 7)
+
+        fake_file = BytesIO('\n'.join([
+                                "b123456789123456789\t0000-0000-0000-0001",
+                                "b123456789123456789\t0000-0000-0000-0002\tarxiv"]))
+
+        with mock.patch('ADSOrcid.app.open', return_value=fake_file, create=True
+                ) as context:
+            c = []
+            self.app.import_recs(__file__, collector=c)
+            self.assertTrue(len(c) == 2)
+    
+    
     @httpretty.activate
     def test_harvest_author_info(self):
         """
@@ -70,17 +134,17 @@ class TestMatcherUpdater(unittest.TestCase):
         orcidid = '0000-0003-2686-9241'
         
         httpretty.register_uri(
-            httpretty.GET, self.app.config['API_ORCID_PROFILE_ENDPOINT'] % orcidid,
+            httpretty.GET, self.app.conf['API_ORCID_PROFILE_ENDPOINT'] % orcidid,
             content_type='application/json',
-            body=open(os.path.join(self.app.config['TEST_UNIT_DIR'], 'stub_data', orcidid + '.orcid.json')).read())
+            body=open(os.path.join(self.app.conf['TEST_DIR'], 'stub_data', orcidid + '.orcid.json')).read())
         httpretty.register_uri(
-            httpretty.GET, self.app.config['API_ORCID_EXPORT_PROFILE'] % orcidid,
+            httpretty.GET, self.app.conf['API_ORCID_EXPORT_PROFILE'] % orcidid,
             content_type='application/json',
-            body=open(os.path.join(self.app.config['TEST_UNIT_DIR'], 'stub_data', orcidid + '.ads.json')).read())
+            body=open(os.path.join(self.app.conf['TEST_DIR'], 'stub_data', orcidid + '.ads.json')).read())
         httpretty.register_uri(
-            httpretty.GET, self.app.config['API_SOLR_QUERY_ENDPOINT'],
+            httpretty.GET, self.app.conf['API_SOLR_QUERY_ENDPOINT'],
             content_type='application/json',
-            body=open(os.path.join(self.app.config['TEST_UNIT_DIR'], 'stub_data', orcidid + '.solr.json')).read())
+            body=open(os.path.join(self.app.conf['TEST_DIR'], 'stub_data', orcidid + '.solr.json')).read())
         
         data = app.harvest_author_info(orcidid)
         self.assertDictEqual(data, {'orcid_name': [u'Stern, Daniel'],
@@ -96,52 +160,13 @@ class TestMatcherUpdater(unittest.TestCase):
                                     'name': u'Stern, D K',
                                     'short_name': ['Stern, A', 'Stern, A D', 'Stern, D', 'Stern, D K']
                                     })
-        
-    
-    def test_create_orcid(self):
-        """Has to create AuthorInfo and populate it, but not add to database"""
-        app = self.app
-        with mock.patch('ADSOrcid.matcher.harvest_author_info', return_value= {'orcid_name': [u'Stern, Daniel'],
-                                    'author': [u'Stern, D', u'Stern, D K', u'Stern, Daniel'],
-                                    'author_norm': [u'Stern, D'],
-                                    'name': u'Stern, D K'
-                                    }
-                ) as context:
-            res = app.create_orcid('0000-0003-2686-9241')
-            self.assertIsInstance(res, AuthorInfo)
-            self.assertEqual(res.name, 'Stern, D K')
-            self.assertEqual(res.orcidid, '0000-0003-2686-9241')
-            self.assertEqual(res.facts, '{"orcid_name": ["Stern, Daniel"], "author_norm": ["Stern, D"], "name": "Stern, D K", "author": ["Stern, D", "Stern, D K", "Stern, Daniel"]}')
-            
-            self.assertTrue(self.app.session.query(AuthorInfo).first() is None)
 
- 
-    def test_retrive_orcid(self):
-        """Has to find and load/or create ORCID data"""
-        app = self.app
-        with mock.patch('ADSOrcid.matcher.harvest_author_info', return_value= {'orcid_name': [u'Stern, Daniel'],
-                                    'author': [u'Stern, D', u'Stern, D K', u'Stern, Daniel'],
-                                    'author_norm': [u'Stern, D'],
-                                    'name': u'Stern, D K'
-                                    }
-                ) as context:
-            author = app.retrieve_orcid('0000-0003-2686-9241')
-            self.assertDictContainsSubset({'status': None, 
-                                           'name': u'Stern, D K', 
-                                           'facts': {u'author': [u'Stern, D', u'Stern, D K', u'Stern, Daniel'], u'orcid_name': [u'Stern, Daniel'], u'author_norm': [u'Stern, D'], u'name': u'Stern, D K'}, 
-                                           'orcidid': u'0000-0003-2686-9241', 
-                                           'id': 1, 
-                                           'account_id': None}, 
-                                          author)
-        
-            self.assertTrue(self.app.session.query(AuthorInfo).first().orcidid, '0000-0003-2686-9241')
-    
-    
+
     def test_update_author(self):
         """Has to update AuthorInfo and also create a log of events about the changes."""
-        app = self.app
+        
         # bootstrap the db with already existing author info
-        with app.session_scope() as session:
+        with self.app.session_scope() as session:
             ainfo = AuthorInfo(orcidid='0000-0003-2686-9241',
                                facts=json.dumps({'orcid_name': [u'Stern, Daniel'],
                                     'author': [u'Stern, D', u'Stern, D K', u'Stern, Daniel'],
@@ -152,18 +177,16 @@ class TestMatcherUpdater(unittest.TestCase):
             session.add(ainfo)
             session.commit()
         
-        with app.session_scope() as session:
+        with self.app.session_scope() as session:
             ainfo = session.query(AuthorInfo).filter_by(orcidid='0000-0003-2686-9241').first()
-            with mock.patch('ADSOrcid.matcher.harvest_author_info', return_value= {'orcid_name': [u'Sternx, Daniel'],
+            with patch.object(self.app, 'harvest_author_info', return_value= {'orcid_name': [u'Sternx, Daniel'],
                                         'author': [u'Stern, D', u'Stern, D K', u'Sternx, Daniel'],
                                         'author_norm': [u'Stern, D'],
                                         'name': u'Sternx, D K'
                                         }
-                    ) as context:
-                app.cache.clear()
-                app.orcid_cache.clear()
-                app.ads_cache.clear()
-                author = app.retrieve_orcid('0000-0003-2686-9241')
+                    ) as _:
+                app.clear_caches()
+                author = self.app.retrieve_orcid('0000-0003-2686-9241')
                 self.assertDictContainsSubset({'status': None, 
                                                'name': u'Sternx, D K', 
                                                'facts': {u'author': [u'Stern, D', u'Stern, D K', u'Sternx, Daniel'], u'orcid_name': [u'Sternx, Daniel'], u'author_norm': [u'Stern, D'], u'name': u'Sternx, D K'}, 
@@ -181,17 +204,15 @@ class TestMatcherUpdater(unittest.TestCase):
                                                'newvalue': json.dumps([u'Stern, D', u'Stern, D K', u'Sternx, Daniel'])},
                                               session.query(ChangeLog).filter_by(key='0000-0003-2686-9241:update:author').first().toJSON())
         
-        with app.session_scope() as session:
+        with self.app.session_scope() as session:
             ainfo = session.query(AuthorInfo).filter_by(orcidid='0000-0003-2686-9241').first()
-            with mock.patch('ADSOrcid.matcher.harvest_author_info', return_value= {
+            with mock.patch.object(self.app, 'harvest_author_info', return_value= {
                                         'name': u'Sternx, D K',
                                         'authorized': True
                                         }
-                    ) as context:
-                app.cache.clear()
-                app.orcid_cache.clear()
-                app.ads_cache.clear()
-                author = app.retrieve_orcid('0000-0003-2686-9241')
+                    ) as _:
+                app.clear_caches()
+                author = self.app.retrieve_orcid('0000-0003-2686-9241')
                 self.assertDictContainsSubset({'status': None, 
                                                'name': u'Sternx, D K', 
                                                'facts': {u'authorized': True, u'name': u'Sternx, D K'}, 
@@ -208,214 +229,72 @@ class TestMatcherUpdater(unittest.TestCase):
                 self.assertDictContainsSubset({'oldvalue': json.dumps([u'Stern, D', u'Stern, D K', u'Stern, Daniel']),
                                                'newvalue': json.dumps([u'Stern, D', u'Stern, D K', u'Sternx, Daniel'])},
                                               session.query(ChangeLog).filter_by(key='0000-0003-2686-9241:update:author').first().toJSON())
-    
+ 
 
-    def test_update_record(self):
-        """
-        Update ADS document with the claim info
+    def test_create_orcid(self):
+        """Has to create AuthorInfo and populate it, but not add to database"""
+        with mock.patch.object(self.app, 'harvest_author_info', return_value= {'orcid_name': [u'Stern, Daniel'],
+                                    'author': [u'Stern, D', u'Stern, D K', u'Stern, Daniel'],
+                                    'author_norm': [u'Stern, D'],
+                                    'name': u'Stern, D K'
+                                    }
+                ) as _:
+            res = self.app.create_orcid('0000-0003-2686-9241')
+            self.assertIsInstance(res, AuthorInfo)
+            self.assertEqual(res.name, 'Stern, D K')
+            self.assertEqual(res.orcidid, '0000-0003-2686-9241')
+            self.assertEqual(res.facts, '{"orcid_name": ["Stern, Daniel"], "author_norm": ["Stern, D"], "name": "Stern, D K", "author": ["Stern, D", "Stern, D K", "Stern, Daniel"]}')
+            
+            self.assertTrue(self.app._session.query(AuthorInfo).first() is None)
 
-        :return: no return
-        """
-        app = self.app
-        doc = {
-            'bibcode': '2015ApJ...799..123B', 
-            'authors': [
-              "Barrière, Nicolas M.",
-              "Krivonos, Roman",
-              "Tomsick, John A.",
-              "Bachetti, Matteo",
-              "Boggs, Steven E.",
-              "Chakrabarty, Deepto",
-              "Christensen, Finn E.",
-              "Craig, William W.",
-              "Hailey, Charles J.",
-              "Harrison, Fiona A.",
-              "Hong, Jaesub",
-              "Mori, Kaya",
-              "Stern, Daniel",
-              "Zhang, William W."
-            ],
-            'claims': {}
-        }
-        r = app.update_record(
-          doc,
-          {
-           'bibcode': '2015ApJ...799..123B', 
-           'orcidid': '0000-0003-2686-9241',
-           'account_id': '1',
-           'orcid_name': [u'Stern, Daniel'],
-           'author': [u'Stern, D', u'Stern, D K', u'Stern, Daniel'],
-           'author_norm': [u'Stern, D'],
-           'name': u'Stern, D K' 
-          }                          
-        )
-        self.assertEqual(r, ('verified', 12))
-        self.assertEqual(doc['claims']['verified'], 
-            ['-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '0000-0003-2686-9241', '-'])
-        
-        app.update_record(
-          doc,
-          {
-           'bibcode': '2015ApJ...799..123B', 
-           'orcidid': '0000-0003-2686-9241',
-           'account_id': '1',
-           'orcid_name': [u'Stern, Daniel'],
-           'author': [u'Stern, D', u'Stern, D K', u'Stern, Daniel'],
-           'author_norm': [u'Stern, D'],
-           'name': u'Stern, D K',
-           'status': 'removed'
-          }                          
-        )
-        self.assertEqual(doc['claims']['verified'], 
-            ['-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-'])
-        
-        # the size differs
-        doc['claims']['verified'] = ['-']
-        r = app.update_record(
-          doc,
-          {
-           'bibcode': '2015ApJ...799..123B', 
-           'orcidid': '0000-0003-2686-9241',
-           'account_id': '1',
-           'orcid_name': [u'Stern, Daniel'],
-           'author': [u'Stern, D', u'Stern, D K', u'Stern, Daniel'],
-           'author_norm': [u'Stern, D'],
-           'name': u'Stern, D K' 
-          }                          
-        )
-        self.assertEqual(r, ('verified', 12))
-        self.assertEqual(doc['claims']['verified'], 
-            ['-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '0000-0003-2686-9241', '-'])
-        
-        self.assertEqual(14, len(doc['claims']['verified']))
-        
 
-    def test_find_author_position(self):
-        """
-        Given the ORCID ID, and information about author name, 
-        we have to identify the position of the author from
-        the list of supplied names
+    def test_retrive_orcid(self):
+        """Has to find and load/or create ORCID data"""
+        with mock.patch.object(self.app, 'harvest_author_info', return_value= {'orcid_name': [u'Stern, Daniel'],
+                                    'author': [u'Stern, D', u'Stern, D K', u'Stern, Daniel'],
+                                    'author_norm': [u'Stern, D'],
+                                    'name': u'Stern, D K'
+                                    }
+                ) as _:
+            author = self.app.retrieve_orcid('0000-0003-2686-9241')
+            self.assertDictContainsSubset({'status': None, 
+                                           'name': u'Stern, D K', 
+                                           'facts': {u'author': [u'Stern, D', u'Stern, D K', u'Stern, Daniel'], u'orcid_name': [u'Stern, Daniel'], u'author_norm': [u'Stern, D'], u'name': u'Stern, D K'}, 
+                                           'orcidid': u'0000-0003-2686-9241', 
+                                           'id': 1, 
+                                           'account_id': None}, 
+                                          author)
+        
+            self.assertTrue(self.app._session.query(AuthorInfo).first().orcidid, '0000-0003-2686-9241')
+            
 
-        :return: no return
-        """
-        app = self.app
-        res = app.find_orcid_position([
-              "Barrière, Nicolas M.",
-              "Krivonos, Roman",
-              "Tomsick, John A.",
-              "Bachetti, Matteo",
-              "Boggs, Steven E.",
-              "Chakrabarty, Deepto",
-              "Christensen, Finn E.",
-              "Craig, William W.",
-              "Hailey, Charles J.",
-              "Harrison, Fiona A.",
-              "Hong, Jaesub",
-              "Mori, Kaya",
-              "Stern, Daniel",
-              "Zhang, William W."
-            ],
-          ['Stern, D.', 'Stern, Daniel']                          
-        )
-        self.assertEqual(res, 12)
-        
-        # check that the author cannot claim what doesn't look like their 
-        # own paper
-        
-        res = app.find_orcid_position([
-               "Erdmann, Christopher",
-               "Frey, Katie"
-               ], 
-              ["Accomazzi, Alberto"]);
-        self.assertEqual(res, -1)
-        
-        # check boundaries
-        res = app.find_orcid_position([
-               "Erdmann, Christopher",
-               "Frey, Katie"
-               ], 
-              ["Erdmann, C"]);
-        self.assertEqual(res, 0)
-        res = app.find_orcid_position([
-               "Erdmann, Christopher",
-               "Cote, Ann",
-               "Frey, Katie"
-               ], 
-              ["Frey, Katie"]);
-        self.assertEqual(res, 2)
-
+ 
     def test_update_database(self):
         """Inserts a record (of claims) into the database"""
-        app = self.app
-        app.record_claims('bibcode', {'verified': ['foo', '-', 'bar'], 'unverified': ['-', '-', '-']})
-        with app.session_scope() as session:
+        self.app.record_claims('bibcode', {'verified': ['foo', '-', 'bar'], 'unverified': ['-', '-', '-']})
+        with self.app.session_scope() as session:
             r = session.query(Records).filter_by(bibcode='bibcode').first()
             self.assertEquals(json.loads(r.claims), {'verified': ['foo', '-', 'bar'], 'unverified': ['-', '-', '-']})
             self.assertTrue(r.created == r.updated)
             self.assertFalse(r.processed)
             
-        app.record_claims('bibcode', {'verified': ['foo', 'zet', 'bar'], 'unverified': ['-', '-', '-']})
-        with app.session_scope() as session:
+        self.app.record_claims('bibcode', {'verified': ['foo', 'zet', 'bar'], 'unverified': ['-', '-', '-']})
+        with self.app.session_scope() as session:
             r = session.query(Records).filter_by(bibcode='bibcode').first()
             self.assertEquals(json.loads(r.claims), {'verified': ['foo', 'zet', 'bar'], 'unverified': ['-', '-', '-']})
             self.assertTrue(r.created != r.updated)
             self.assertFalse(r.processed)
         
-        app.mark_processed('bibcode')
-        with app.session_scope() as session:
+        self.app.mark_processed('bibcode')
+        with self.app.session_scope() as session:
             r = session.query(Records).filter_by(bibcode='bibcode').first()
             self.assertTrue(r.processed)
             
             
-    def test_importer_import_recs(self):
-        """It should know how to import bibcode:orcidid pairs
-        :return None
-        """
-        
-        fake_file = BytesIO("\n".join([
-                                 "b123456789123456789\t0000-0000-0000-0001",
-                                 "b123456789123456789\t0000-0000-0000-0002\tarxiv",
-                                 "b123456789123456789\t0000-0000-0000-0003\tarxiv\tclaimed",
-                                 "b123456789123456789\t0000-0000-0000-0004\tfoo        \tclaimed\t2008-09-03T20:56:35.450686Z",
-                                 "b123456789123456789\t0000-0000-0000-0005",
-                                 "b123456789123456789\t0000-0000-0000-0006",
-                                 "b123456789123456789\t0000-0000-0000-0004\tfoo        \tupdated\t2009-09-03T20:56:35.450686Z",
-                                ]))
-        with mock.patch('ADSOrcid.importer.open', return_value=fake_file, create=True
-                ) as context:
-            importer.import_recs(__file__)
-            self.assertTrue(len(self.app.session.query(ClaimsLog).all()) == 7)
 
-        fake_file = BytesIO('\n'.join([
-                                "b123456789123456789\t0000-0000-0000-0001",
-                                "b123456789123456789\t0000-0000-0000-0002\tarxiv"]))
-
-        with mock.patch('ADSOrcid.importer.open', return_value=fake_file, create=True
-                ) as context:
-            c = []
-            importer.import_recs(__file__, collector=c)
-            self.assertTrue(len(c) == 2)
         
     
-    def test_insert_claim(self):
-        """
-        It should be able to create a series of claims
-        """
-        r = importer.insert_claims([
-                    {'bibcode': 'b123456789123456789',
-                     'orcidid': '0000-0000-0000-0001',
-                     'provenance' : 'ads test'},
-                    {'bibcode': 'b123456789123456789',
-                     'orcidid': '0000-0000-0000-0001',
-                     'status' : 'updated'},
-                    importer.create_claim(bibcode='b123456789123456789', 
-                                          orcidid='0000-0000-0000-0001', 
-                                          status='removed')
-                ])
-        self.assertEquals(len(r), 3)
-        
-        self.assertTrue(len(self.app.session.query(ClaimsLog)
-                            .filter_by(bibcode='b123456789123456789').all()) == 3)
+    
         
     
 if __name__ == '__main__':

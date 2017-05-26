@@ -22,7 +22,7 @@ import traceback
 
 
 # global objects; we could make them belong to the app object but it doesn't seem necessary
-# unless two apps with a different endpint/config live along; XXX - move if necessary
+# unless two apps with a different endpint/config live along; TODO: move if necessary
 cache = cachetools.TTLCache(maxsize=1024, ttl=3600, timer=time.time, missing=None, getsizeof=None)
 orcid_cache = cachetools.TTLCache(maxsize=1024, ttl=3600, timer=time.time, missing=None, getsizeof=None)
 ads_cache = cachetools.TTLCache(maxsize=1024, ttl=3600, timer=time.time, missing=None, getsizeof=None)
@@ -47,6 +47,13 @@ def create_app(app_name='ADSOrcid',
     return app
 
 
+def clear_caches():
+    """Clears all the module caches."""
+    cache.clear()
+    orcid_cache.clear()
+    ads_cache.clear()
+    bibcode_cache.clear()
+
 
 class ADSOrcidCelery(Celery):
     
@@ -69,7 +76,8 @@ class ADSOrcidCelery(Celery):
             return
         
         if config:
-            self._config.update(config)
+            self._config.update(config) #our config
+            self.conf.update(config) #celery's config (devs should be careful to avoid clashes)
         
         self.logger = utils.setup_logging(__file__, 'app', self._config.get('LOGGING_LEVEL', 'INFO'))
         self._engine = create_engine(config.get('SQLALCHEMY_URL', 'sqlite:///'),
@@ -168,6 +176,8 @@ class ADSOrcidCelery(Celery):
                 if f and f.bibcode == bibcode and f.orcidid == orcidid:
                     f.provenance = provenance
                     f.status = status
+                    session.expunge(f)
+                    return f
                 else:
                     return ClaimsLog(bibcode=bibcode, 
                       orcidid=orcidid,
@@ -568,7 +578,7 @@ class ADSOrcidCelery(Celery):
                     '%(endpoint)s?q=%(query)s&fl=author,author_norm,orcid_pub&rows=100&sort=pubdate+desc' % \
                     {
                      'endpoint': self._config.get('API_SOLR_QUERY_ENDPOINT'),
-                     'query' : 'orcid_pub:%s' % self.cleanup_orcidid(orcidid),
+                     'query' : 'orcid_pub:%s' % names.cleanup_orcidid(orcidid),
                     },
                     headers={'Authorization': 'Bearer %s' % self._config.get('API_TOKEN')})
         
