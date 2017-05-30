@@ -268,7 +268,8 @@ class ADSOrcidCelery(Celery):
         :param: api_token
             - string, OAuth token to access ADS API
         :param: api_url:
-            - string, URL for getting the orcid profiles
+            - string, URL for getting the orcid profiles; in the
+              config it is 'API_ORCID_EXPORT_PROFILE'
         :param: force
             - bool, when True it forces claims to be counted
                 as new (even if we have already indexed them)
@@ -293,11 +294,11 @@ class ADSOrcidCelery(Celery):
         data = self._get_ads_orcid_profile(orcidid, api_token, api_url)
         
         if data is None:
-            return #TODO: remove all existing claims?
+            return {}, {}, {} #TODO: remove all existing claims?
         
         profile = data.get('profile', {})
         if not profile:
-            return #TODO: remove all existing claims?
+            return {}, {}, {} #TODO: remove all existing claims?
         
     
         with self.session_scope() as session:
@@ -309,7 +310,7 @@ class ADSOrcidCelery(Celery):
                 self.logger.warning('Nothing to do for: '
                     '{0} ({1})'.format(orcidid,
                                        traceback.format_exc()))
-                return
+                return {}, {}, {}
     
             # check we haven't seen this very profile already
             try:
@@ -333,7 +334,7 @@ class ADSOrcidCelery(Celery):
                         self.logger.info("Profile {0} unchanged, but forced update in effect.".format(orcidid))
                     else:
                         self.logger.info("Skipping {0} (profile unchanged)".format(orcidid))
-                        return
+                        return {}, {}, {}
                 q = session.query(ClaimsLog).filter(
                     and_(ClaimsLog.orcidid == orcidid, ClaimsLog.id > last_update.id)) \
                     .order_by(ClaimsLog.id.asc())

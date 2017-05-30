@@ -275,11 +275,16 @@ def task_output_results(msg):
             }
     :return: no return
     """
-    Task.apply_async(args=('orcid_claims', msg),
-                     exchange=app.conf.get('OUTPUT_EXCHANGE', 'import-pipeline'),
+    task_forward_message.delay('orcid_claims', msg)
+
+
+@app.task(base=MyTask, exchange=app.conf.get('OUTPUT_EXCHANGE', 'import-pipeline'),
                      queue=app.conf.get('OUTPUT_QUEUE', 'update-record'),
                      routing_key=app.conf.get('OUTPUT_QUEUE', 'update-record'))
-
+def task_forward_message(key, msg):
+    """A handler that can be used to forward stuff out of our
+    queue. It does nothing (it doesn't process data)"""
+    pass 
 
 
 @app.task(base=MyTask, queue='errors')
