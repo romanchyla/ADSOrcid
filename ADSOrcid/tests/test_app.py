@@ -20,7 +20,7 @@ import mock
 from mock import patch
 from io import BytesIO
 from datetime import datetime
-from ADSOrcid import app
+from ADSOrcid import app, utils
 from ADSOrcid.models import ClaimsLog, Records, AuthorInfo, Base, ChangeLog
 
 class TestAdsOrcidCelery(unittest.TestCase):
@@ -292,9 +292,55 @@ class TestAdsOrcidCelery(unittest.TestCase):
             
             
 
+    def test_get_claims(self):
+        """Check the correct logic for discovering difference in the orcid profile."""
         
-    
-    
+        orcidid = '0000-0003-3041-2092'
+        def side_effect(x, search_identifiers=False):
+            return {'bibcode': x}
+        with mock.patch.object(self.app, 'retrieve_orcid', 
+                return_value={'status': None, 'updated': None, 'name': None, 'created': '2009-09-03T20:56:35.450686+00:00', 
+                              'facts': {}, 'orcidid': orcidid, 'id': 1, 'account_id': None} ) as harvest_author_info, \
+            mock.patch.object(self.app, '_get_ads_orcid_profile',
+                return_value=json.loads(open(os.path.join(self.app.conf['TEST_DIR'], 'stub_data', orcidid + '.ads.json')).read())) as _, \
+            mock.patch.object(self.app, 'retrieve_metadata', side_effect=side_effect) as retrieve_metadata:
+            
+            
+            orcid_present, updated, removed = self.app.get_claims(orcidid,
+                         self.app.conf.get('API_TOKEN'), 
+                         self.app.conf.get('API_ORCID_EXPORT_PROFILE') % orcidid,
+                         force=False,
+                         orcid_identifiers_order=self.app.conf.get('ORCID_IDENTIFIERS_ORDER', {'bibcode': 9, '*': -1})
+                         )
+            assert len(orcid_present) == 7 and len(updated) == 0 and len(removed) == 0
+            
+            # pretend that we have already ran the import
+            cdate = utils.get_date('2015-11-05 16:37:33.381000+00:00') # this is the latest moddate from the orcid profile
+            self.app.insert_claims([self.app.create_claim(bibcode='', 
+                              orcidid=orcidid, 
+                              provenance='OrcidImporter', 
+                              status='#full-import',
+                              date=cdate
+                              )])
+            
+            # it should ignore the next call
+            orcid_present, updated, removed = self.app.get_claims(orcidid,
+                         self.app.conf.get('API_TOKEN'), 
+                         self.app.conf.get('API_ORCID_EXPORT_PROFILE') % orcidid,
+                         force=False,
+                         orcid_identifiers_order=self.app.conf.get('ORCID_IDENTIFIERS_ORDER', {'bibcode': 9, '*': -1})
+                         )
+            assert len(orcid_present) == 0 and len(updated) == 0 and len(removed) == 0
+            
+            # but if we force it, it must not ignore use...
+            orcid_present, updated, removed = self.app.get_claims(orcidid,
+                         self.app.conf.get('API_TOKEN'), 
+                         self.app.conf.get('API_ORCID_EXPORT_PROFILE') % orcidid,
+                         force=True,
+                         orcid_identifiers_order=self.app.conf.get('ORCID_IDENTIFIERS_ORDER', {'bibcode': 9, '*': -1})
+                         )
+            #print len(orcid_present), len(updated), len(removed)
+            assert len(orcid_present) == 7 and len(updated) == 0 and len(removed) == 0
         
     
 if __name__ == '__main__':
