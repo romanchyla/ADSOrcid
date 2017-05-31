@@ -1,5 +1,8 @@
 import os
 
+# possible values: WARN, INFO, DEBUG
+LOGGING_LEVEL = 'DEBUG'
+
 # Connection to the database where we save orcid-claims (this database
 # serves as a running log of claims and storage of author-related
 # information). It is not consumed by others (ie. we 'push' results) 
@@ -7,16 +10,26 @@ import os
 SQLALCHEMY_URL = 'sqlite:///'
 SQLALCHEMY_ECHO = False
 
-# One of the workers is (currently) writing orcid claims into MongoDB
-# this is the same db as for ADSClassic<->adsdata synchronization
-MONGODB_URL = 'mongodb://localhost:37017/adsdata'
+
+# Celery related configuration
+# All work we do is concentrated into one exchange (the queues are marked
+# by topics, e.g. ads.orcid.claims); The queues will be created automatically
+# based on the workers' definition. If 'durable' = True, it means that the 
+# queue is created as permanent *AND* the worker will publish 'permanent'
+# messages. Ie. if rabbitmq goes down/restarted, the uncomsumed messages will
+# still be there 
+
+CELERY_INCLUDE = ['ADSOrcid.tasks']
+ACKS_LATE=True
+PREFETCH_MULTIPLIER=1
+CELERYD_TASK_SOFT_TIME_LIMIT = 60
+CELERY_BROKER = 'pyamqp://'
 
 
-# Configuration of the pipeline; if you start 'vagrant up rabbitmq' 
-# container, the port is localhost:8072 - but for production, you 
-# want to point to the ADSImport pipeline 
-RABBITMQ_URL = 'amqp://guest:guest@localhost:6672/?' \
-               'socket_timeout=10&backpressure_detection=t'
+# Where to send results (of our processing); defaults are set in the tasks
+OUTPUT_EXCHANGE = 'import-pipeline'
+OUTPUT_QUEUE = 'update-record'
+
                
 
 
@@ -41,59 +54,6 @@ API_ORCID_PROFILE_ENDPOINT = 'http://pub.orcid.org/v1.2/%s/orcid-bio'
 MIN_LEVENSHTEIN_RATIO = 0.69
 
 
-# possible values: WARN, INFO, DEBUG
-LOGGING_LEVEL = 'DEBUG'
-
-               
-POLL_INTERVAL = 15  # per-worker poll interval (to check health) in seconds.
-
-# All work we do is concentrated into one exchange (the queues are marked
-# by topics, e.g. ads.orcid.claims); The queues will be created automatically
-# based on the workers' definition. If 'durable' = True, it means that the 
-# queue is created as permanent *AND* the worker will publish 'permanent'
-# messages. Ie. if rabbitmq goes down/restarted, the uncomsumed messages will
-# still be there 
-EXCHANGE = 'ads-orcid'
-
-WORKERS = {
-    'OrcidImporter': {
-        'concurrency': 1,
-        'subscribe': 'ads.orcid.fresh-claims',
-        'publish': 'ads.orcid.claims',
-        'error': 'ads.orcid.error',
-        'durable': True
-    },
-    'ClaimsIngester': {
-        'concurrency': 1,
-        'subscribe': 'ads.orcid.claims',
-        'publish': 'ads.orcid.updates',
-        'error': 'ads.orcid.error',
-        'durable': True
-    },
-    'ClaimsRecorder': {
-        'concurrency': 5,
-        'subscribe': 'ads.orcid.updates',
-        'publish': 'ads.orcid.output',
-        'error': 'ads.orcid.error',
-        'durable': True
-    },
-    'OutputHandler': {
-        'subscribe': 'ads.orcid.output',
-        'publish': None,
-        'durable': True,
-        'forwarding': {
-            'exchange': 'MergerPipelineExchange',
-            'publish': 'SolrUpdateQueue'
-        }
-    },
-    'ErrorHandler': {
-        'subscribe': 'ads.orcid.error',
-        'exchange': None,
-        'publish': None,
-        'durable' : False
-    },
-    
-}
 
 # order in which the identifiers (inside an orcid profile) will be tested
 # to retrieve a canonical bibcode; first match will stop the process. Higher number

@@ -3,9 +3,8 @@
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import Column, Integer, String, Text, TIMESTAMP
 from sqlalchemy.types import Enum
-import datetime
 import json
-from .utils import get_date
+from ADSOrcid.utils import get_date
 
 Base = declarative_base()
 

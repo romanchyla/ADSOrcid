@@ -4,135 +4,16 @@ Library for updating papers (db claims/records).
 """
 
 import Levenshtein
-from . import matcher
-from .exceptions import IgnorableException
-import app
 import json
-from .models import Records
 from .utils import get_date
-from ADSOrcid.models import ClaimsLog
-from app import config
+from ADSOrcid.models import ClaimsLog, Records
+from ADSOrcid import utils, names
 from sqlalchemy.sql.expression import and_
 import requests
-import cachetools
-import time
 from datetime import timedelta
 
-bibcode_cache = cachetools.TTLCache(maxsize=2048, ttl=3600, timer=time.time, missing=None, getsizeof=None)
 
-@cachetools.cached(bibcode_cache) 
-def retrieve_metadata(bibcode, search_identifiers=False):
-    """
-    From the API retrieve the set of metadata we want to know about the record.
-    """
-    params={
-            'q': search_identifiers and 'identifier:"{0}"'.format(bibcode) or 'bibcode:"{0}"'.format(bibcode),
-            'fl': 'author,bibcode,identifier'
-            }
-    r = requests.get(config.get('API_SOLR_QUERY_ENDPOINT'),
-         params=params,
-         headers={'Accept': 'application/json', 'Authorization': 'Bearer:%s' % config.get('API_TOKEN')})
-    if r.status_code != 200:
-        raise Exception('{}\n{}\n{}'.format(r.status_code, params, r.text))
-    else:
-        data = r.json().get('response', {})
-        if data.get('numFound') == 1:
-            docs = data.get('docs', [])
-            return docs[0]
-        elif data.get('numFound') == 0:
-            if search_identifiers:
-                bibcode_cache.setdefault(bibcode, {}) # insert to prevent failed retrievals
-                raise IgnorableException(u'No metadata found for identifier:{0}'.format(bibcode))
-            else:
-                return retrieve_metadata(bibcode, search_identifiers=True)
-        else:
-            if data.get('numFound') > 10:
-                raise IgnorableException(u'Insane num of results for {0} ({1})'.format(bibcode, data.get('numFound')))
-            docs = data.get('docs', [])
-            for d in docs:
-                for ir in d.get('identifier', []):
-                    if ir.lower().strip() == bibcode.lower().strip():
-                        return d
-            raise IgnorableException(u'More than one document found for {0}'.format(bibcode))
-        
-
-
-def retrieve_record(bibcode):
-    """
-    Gets a record from the database (creates one if necessary)
-    """
-    with app.session_scope() as session:
-        r = session.query(Records).filter_by(bibcode=bibcode).first()
-        if r is None:
-            r = Records(bibcode=bibcode)
-            session.add(r)
-        out = r.toJSON()
-        
-        metadata = retrieve_metadata(bibcode)
-        authors = metadata.get('author', [])
-        
-        if out.get('authors') != authors:
-            r.authors = json.dumps(authors)
-            out['authors'] = authors
-        
-        session.commit()
-        return out
-
-
-def record_claims(bibcode, claims, authors=None):
-    """
-    Stores results of the processing in the database.
-    
-    :param: bibcode
-    :type: string
-    :param: claims
-    :type: dict
-    """
-    
-    if not isinstance(claims, basestring):
-        claims = json.dumps(claims)
-    if authors and not isinstance(authors, basestring):
-        authors = json.dumps(authors)
-        
-    with app.session_scope() as session:
-        if not isinstance(claims, basestring):
-            claims = json.dumps(claims)
-        r = session.query(Records).filter_by(bibcode=bibcode).first()
-        if r is None:
-            t = get_date()
-            r = Records(bibcode=bibcode, 
-                        claims=claims, 
-                        created=t,
-                        updated=t,
-                        authors=authors
-                        )
-            session.add(r)
-        else:
-            r.updated = get_date()
-            r.claims = claims
-            if authors:
-                r.authors = authors
-            session.merge(r)
-        session.commit()
-
-
-def mark_processed(bibcode):
-    """Updates the date on which the record has been processed (i.e.
-    something has consumed it
-    
-    :param: bibcode
-    :type: str
-    
-    :return: None
-    """
-    
-    with app.session_scope() as session:
-        r = session.query(Records).filter_by(bibcode=bibcode).first()
-        if r is None:
-            raise IgnorableException('Nonexistant record for {0}'.format(bibcode))
-        r.processed = get_date()
-        session.commit()
-        return True        
+logger = utils.setup_logging('updater', 'updater')     
 
 
 def update_record(rec, claim):
@@ -194,7 +75,7 @@ def update_record(rec, claim):
             idx = find_orcid_position(rec['authors'], claim[fx])
             if idx > -1:              
                 if idx >= num_authors:
-                    app.logger.error(u'Index is beyond list boundary: \n' + 
+                    logger.error(u'Index is beyond list boundary: \n' + 
                                      u'Field {fx}, author {author}, len(authors)={la}, len({fx})=lfx'
                                      .format(
                                        fx=fx, author=claim[fx], la=num_authors, lfx=len(claim[fx])
@@ -208,7 +89,8 @@ def update_record(rec, claim):
     if modified:
         return ('removed', -1)
 
-def find_orcid_position(authors_list, name_variants):
+def find_orcid_position(authors_list, name_variants,
+                        min_levenshtein=0.9):
     """
     Find the position of ORCID in the list of other strings
     
@@ -217,8 +99,8 @@ def find_orcid_position(authors_list, name_variants):
     
     :return list of positions that match
     """
-    al = [matcher.cleanup_name(x).lower().encode('utf8') for x in authors_list]
-    nv = [matcher.cleanup_name(x).lower().encode('utf8') for x in name_variants]
+    al = [names.cleanup_name(x).lower().encode('utf8') for x in authors_list]
+    nv = [names.cleanup_name(x).lower().encode('utf8') for x in name_variants]
     
     # compute similarity between all authors (and the supplied variants)
     # this is not very efficient, however the lists should be small
@@ -238,19 +120,19 @@ def find_orcid_position(authors_list, name_variants):
     if len(res) == 0:
         return -1
     
-    if res[0][0] < app.config.get('MIN_LEVENSHTEIN_RATIO', 0.9):
+    if res[0][0] < min_levenshtein:
         # test submatch (0.6470588235294118, 19, 0) (required:0.69) closest: vernetto, s, variant: vernetto, silvia teresa
         author_name = al[res[0][1]]
         variant_name = nv[res[0][2]]
         if author_name in variant_name or variant_name in author_name:
-            app.logger.debug(u'Using submatch for: %s (required:%s) closest: %s, variant: %s' \
-                        % (res[0], app.config.get('MIN_LEVENSHTEIN_RATIO', 0.9), 
+            logger.debug(u'Using submatch for: %s (required:%s) closest: %s, variant: %s' \
+                        % (res[0], min_levenshtein, 
                            unicode(author_name, 'utf-8'), 
                            unicode(variant_name, 'utf-8')))
             return res[0][1]
             
-        app.logger.debug(u'No match found: the closest is: %s (required:%s) closest: %s, variant: %s' \
-                        % (res[0], app.config.get('MIN_LEVENSHTEIN_RATIO', 0.9), 
+        logger.debug(u'No match found: the closest is: %s (required:%s) closest: %s, variant: %s' \
+                        % (res[0], min_levenshtein, 
                            unicode(author_name, 'utf-8'), 
                            unicode(variant_name, 'utf-8')))
         return -1
@@ -271,7 +153,7 @@ def _remove_orcid(rec, orcidid):
             modified = True
     return modified
 
-def reindex_all_claims(orcidid, since=None, ignore_errors=False):
+def reindex_all_claims(app, orcidid, since=None, ignore_errors=False):
     """
     Procedure that will re-play all claims
     that were modified since a given starting point.
@@ -281,7 +163,7 @@ def reindex_all_claims(orcidid, since=None, ignore_errors=False):
     recs_modified = set()
     
     with app.session_scope() as session:
-        author = matcher.retrieve_orcid(orcidid)
+        author = app.retrieve_orcid(orcidid)
         claimed = set()
         removed = set()
         for claim in session.query(ClaimsLog).filter(
@@ -329,7 +211,7 @@ def reindex_all_claims(orcidid, since=None, ignore_errors=False):
         return list(recs_modified)
 
 
-def get_all_touched_profiles(since='1974-11-09T22:56:52.518001Z'):
+def get_all_touched_profiles(app, since='1974-11-09T22:56:52.518001Z'):
     """Queries the orcid-service for all new/updated
     orcid profiles"""
     
@@ -339,9 +221,9 @@ def get_all_touched_profiles(since='1974-11-09T22:56:52.518001Z'):
     while True:
         # increase the timestamp by one microsec and get new updates
         latest_point = latest_point + timedelta(microseconds=1)
-        r = requests.get(app.config.get('API_ORCID_UPDATES_ENDPOINT') % latest_point.isoformat(),
+        r = requests.get(app.conf.get('API_ORCID_UPDATES_ENDPOINT') % latest_point.isoformat(),
                     params={'fields': ['orcid_id', 'updated', 'created']},
-                    headers = {'Authorization': 'Bearer {0}'.format(app.config.get('API_TOKEN'))})
+                    headers = {'Authorization': 'Bearer {0}'.format(app.conf.get('API_TOKEN'))})
     
         if r.status_code != 200:
             raise Exception(r.text)
