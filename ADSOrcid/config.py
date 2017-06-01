@@ -26,8 +26,14 @@ CELERYD_TASK_SOFT_TIME_LIMIT = 60
 CELERY_BROKER = 'pyamqp://'
 
 
-# Where to send results (of our processing); defaults are set in the tasks
-OUTPUT_EXCHANGE = 'import-pipeline'
+# Where to send results (of our processing); since we rely on Celery, we have
+# to specify the task id - which is the worker's module on the remote side
+# that will be handling the message. This is a limitation of the current setup.
+# TODO: find a way to send a queue to the remote queue and let Celery deliver
+# it to the appropriate worker without having to specify it's name
+OUTPUT_CELERY_BROKER = 'pyamqp://guest:guest@localhost:6672/import_pipeline'
+OUTPUT_TASKNAME = 'aip.app.task_update_record'
+OUTPUT_EXCHANGE = 'import_pipeline'
 OUTPUT_QUEUE = 'update-record'
 
                

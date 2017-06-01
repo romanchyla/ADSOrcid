@@ -6,7 +6,7 @@ from ADSOrcid.exceptions import ProcessingException, IgnorableException
 from ADSOrcid.models import KeyValue
 from celery import Task
 from celery.utils.log import get_task_logger
-from kombu import Exchange, Queue
+from kombu import Exchange, Queue, BrokerConnection
 import datetime
 import math
 import requests
@@ -25,6 +25,7 @@ app.conf.CELERY_QUEUES = (
     Queue('check-updates', exch, routing_key='check-updates'),
 )
 
+# set of logger used by the workers below
 error_logger = utils.setup_logging('error-queue', 'task:error', app.conf.get('LOGGING_LEVEL', 'INFO'))
 check_orcidid_logger = utils.setup_logging('check-orcidid', 'task:check-orcidid', app.conf.get('LOGGING_LEVEL', 'INFO'))
 record_claim_logger = utils.setup_logging('record-claim', 'task:record-claim', app.conf.get('LOGGING_LEVEL', 'INFO'))
@@ -32,6 +33,11 @@ match_claim_logger = utils.setup_logging('match-claim', 'task:match-claim', app.
 output_results_logger = utils.setup_logging('output-results', 'task:output-results', app.conf.get('LOGGING_LEVEL', 'INFO'))
 check_updates_logger = utils.setup_logging('check-updates', 'task:check-updates', app.conf.get('LOGGING_LEVEL', 'INFO'))
 
+
+# connection to the other virtual host (for sending data out)
+forwarding_connection = BrokerConnection(app.conf.get('OUTPUT_CELERY_BROKER',
+                              '%s/%s' % (app.conf.get('CELRY_BROKER', 'pyamqp://'),
+                                         app.conf.get('OUTPUT_EXCHANGE', 'import-pipeline'))))
 class MyTask(Task):
     def on_failure(self, exc, task_id, args, kwargs, einfo):
         error_logger.error('{0!r} failed: {1!r}'.format(task_id, exc))
@@ -275,16 +281,19 @@ def task_output_results(msg):
             }
     :return: no return
     """
-    task_forward_message.delay('orcid_claims', msg)
+    _forward_message.apply_async(
+        (msg['bibcode'], 'orcid_claims', msg), 
+        connection=forwarding_connection)
 
 
-@app.task(base=MyTask, exchange=app.conf.get('OUTPUT_EXCHANGE', 'import-pipeline'),
+@app.task(base=MyTask, name=app.conf.get('OUTPUT_TASKNAME', 'ads.import.pipeline.worker'), 
+                     exchange=app.conf.get('OUTPUT_EXCHANGE', 'import_pipeline'),
                      queue=app.conf.get('OUTPUT_QUEUE', 'update-record'),
                      routing_key=app.conf.get('OUTPUT_QUEUE', 'update-record'))
-def task_forward_message(key, msg):
+def _forward_message(bibcode, key, msg):
     """A handler that can be used to forward stuff out of our
     queue. It does nothing (it doesn't process data)"""
-    pass 
+    output_results_logger.error('We should have never been called directly! %s' % (repr((bibcode, key, msg)))) 
 
 
 @app.task(base=MyTask, queue='errors')
