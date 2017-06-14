@@ -1,8 +1,8 @@
 
 
 from .models import ClaimsLog, Records, AuthorInfo, ChangeLog
-from .utils import get_date, setup_logging
-from ADSOrcid import utils, names
+from adsputils import get_date, setup_logging, load_config
+from ADSOrcid import names
 from ADSOrcid.exceptions import IgnorableException
 from celery import Celery
 from contextlib import contextmanager
@@ -35,7 +35,7 @@ def create_app(app_name='ADSOrcid',
                local_config=None):
     """Builds and initializes the Celery application."""
     
-    conf = utils.load_config()
+    conf = load_config()
     if local_config:
         conf.update(local_config)
 
@@ -59,9 +59,10 @@ class ADSOrcidCelery(Celery):
     
     def __init__(self, app_name, *args, **kwargs):
         Celery.__init__(self, *args, **kwargs)
-        self._config = utils.load_config()
+        self._config = load_config()
         self._session = None
-        self.logger = utils.setup_logging(app_name, app_name) #default logger
+        self._app_name = app_name
+        self.logger = setup_logging(app_name) #default logger
         
     
 
@@ -79,7 +80,7 @@ class ADSOrcidCelery(Celery):
             self._config.update(config) #our config
             self.conf.update(config) #celery's config (devs should be careful to avoid clashes)
         
-        self.logger = utils.setup_logging(__file__, 'app', self._config.get('LOGGING_LEVEL', 'INFO'))
+        self.logger = setup_logging(self._app_name, level=self._config.get('LOGGING_LEVEL', 'INFO'))
         self._engine = create_engine(config.get('SQLALCHEMY_URL', 'sqlite:///'),
                                echo=config.get('SQLALCHEMY_ECHO', False))
         self._session_factory = sessionmaker()
@@ -160,7 +161,7 @@ class ADSOrcidCelery(Celery):
         """
         assert(orcidid)
         if isinstance(date, basestring):
-            date = utils.get_date(date)
+            date = get_date(date)
         if status and status.lower() not in ALLOWED_STATUS:
             raise Exception('Unknown status %s' % status)
         
@@ -169,7 +170,7 @@ class ADSOrcidCelery(Celery):
                       orcidid=orcidid,
                       provenance=provenance, 
                       status=status,
-                      created=date or utils.get_date())
+                      created=date or get_date())
         else:
             with self.session_scope() as session:
                 f = session.query(ClaimsLog).filter_by(created=date).first()

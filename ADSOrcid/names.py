@@ -1,8 +1,5 @@
 
 from ADSOrcid.models import AuthorInfo, ChangeLog
-import requests
-import json
-import time
 from copy import deepcopy
 from .exceptions import IgnorableException
 """

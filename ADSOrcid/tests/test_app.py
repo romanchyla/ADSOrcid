@@ -20,7 +20,8 @@ import mock
 from mock import patch
 from io import BytesIO
 from datetime import datetime
-from ADSOrcid import app, utils
+import adsputils as utils
+from ADSOrcid import app
 from ADSOrcid.models import ClaimsLog, Records, AuthorInfo, Base, ChangeLog
 
 class TestAdsOrcidCelery(unittest.TestCase):

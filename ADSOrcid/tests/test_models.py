@@ -4,8 +4,9 @@
 
 from datetime import datetime
 import unittest
+import adsputils as utils
 from ADSOrcid.models import ClaimsLog, Records, AuthorInfo, Base
-from ADSOrcid import app, utils
+from ADSOrcid import app
 
 class Test(unittest.TestCase):
     

@@ -22,33 +22,12 @@ import warnings
 from requests.packages.urllib3 import exceptions
 warnings.simplefilter('ignore', exceptions.InsecurePlatformWarning)
 
-from ADSOrcid import app, importer, updater
-from ADSOrcid.pipeline import GenericWorker
-from ADSOrcid.pipeline import pstart
-from ADSOrcid.utils import setup_logging, get_date
+from adsputils import setup_logging, get_date
+from ADSOrcid import app, updater, tasks
 from ADSOrcid.models import ClaimsLog, KeyValue, Records, AuthorInfo
 
-logger = setup_logging(__file__, __name__)
-RabbitMQWorker = GenericWorker.RabbitMQWorker
+logger = setup_logging('run.py')
 
-def purge_queues(queues):
-    """
-    Purges the queues on the RabbitMQ instance of its content
-
-    :param queues: queue name that needs to be purged
-    :return: no return
-    """
-
-    publish_worker = RabbitMQWorker()
-    publish_worker.connect(app.config.get('RABBITMQ_URL'))
-
-    for worker, wconfig in app.config.get('WORKERS').iteritems():
-        for x in ('publish', 'subscribe'):
-            if x in wconfig and wconfig[x]:
-                try:
-                    publish_worker.channel.queue_delete(queue=wconfig[x])
-                except pika.exceptions.ChannelClosed, e:
-                    pass
 
 
 def run_import(claims_file, queue='ads.orcid.claims', **kwargs):
@@ -69,13 +48,8 @@ def run_import(claims_file, queue='ads.orcid.claims', **kwargs):
     importer.import_recs(claims_file, collector=c)
     
     if len(c):
-        worker = RabbitMQWorker(params={
-                            'publish': queue,
-                            'exchange': app.config.get('EXCHANGE', 'ads-orcid')
-                        })
-        worker.connect(app.config.get('RABBITMQ_URL'))
         for claim in c:
-            worker.publish(claim)
+            tasks.task_ingest_claim.delay(claim)
         
     logger.info('Done processing {0} claims.'.format(len(c)))
 
@@ -90,14 +64,9 @@ def reindex_claims(since=None, orcid_ids=None, **kwargs):
     
     :return: no return
     """
-    worker = RabbitMQWorker(params={
-        'publish': 'ads.orcid.fresh-claims',
-        'exchange': app.config.get('EXCHANGE', 'ads-orcid')
-    })
-    worker.connect(app.config.get('RABBITMQ_URL'))
     if orcid_ids:
         for oid in orcid_ids.split(','):
-            worker.publish({'orcidid': oid, 'force': True})
+            tasks.task_index_orcid_profile.delay({'orcidid': oid, 'force': True})
         if not since:
             print 'Done (just the supplied orcidids)'
             return
@@ -126,7 +95,7 @@ def reindex_claims(since=None, orcid_ids=None, **kwargs):
                     changed = updater.reindex_all_claims(orcidid, since=from_date.isoformat(), ignore_errors=True)
                     if len(changed):
                         orcidids.add(orcidid)
-                    worker.publish({'orcidid': orcidid, 'force': True})
+                    tasks.task_index_orcid_profile.delay({'orcidid': oid, 'force': True})
                 except:
                     print 'Error processing: {0}'.format(orcidid)
                     traceback.print_exc()
@@ -144,11 +113,11 @@ def reindex_claims(since=None, orcid_ids=None, **kwargs):
       
     for orcidid in orcidids:
         try:
-            worker.publish({'orcidid': orcidid, 'force': True})
+            tasks.task_index_orcid_profile.delay({'orcidid': oid, 'force': True})
         except: # potential backpressure (we are too fast)
             time.sleep(2)
             print 'Conn problem, retrying...', orcidid
-            worker.publish({'orcidid': orcidid, 'force': True})
+            tasks.task_index_orcid_profile.delay({'orcidid': oid, 'force': True})
         
     with app.session_scope() as session:
         kv = session.query(KeyValue).filter_by(key='last.reindex').first()
@@ -173,14 +142,9 @@ def repush_claims(since=None, orcid_ids=None, **kwargs):
     
     :return: no return
     """
-    worker = RabbitMQWorker(params={
-        'publish': 'ads.orcid.output',
-        'exchange': app.config.get('EXCHANGE', 'ads-orcid')
-    })
-    worker.connect(app.config.get('RABBITMQ_URL'))
     if orcid_ids:
         for oid in orcid_ids.split(','):
-            worker.publish({'orcidid': oid, 'force': False})
+            tasks.task_index_orcid_profile({'orcidid': oid, 'force': False})
         if not since:
             print 'Done (just the supplied orcidids)'
             return
@@ -209,11 +173,11 @@ def repush_claims(since=None, orcid_ids=None, **kwargs):
             
             data = rec.toJSON()
             try:
-                worker.publish({'bibcode': data['bibcode'], 'authors': data['authors'], 'claims': data['claims']})
+                tasks.task_output_results.delay({'bibcode': data['bibcode'], 'authors': data['authors'], 'claims': data['claims']})
             except: # potential backpressure (we are too fast)
                 time.sleep(2)
                 print 'Conn problem, retrying ', data['bibcode']
-                worker.publish({'bibcode': data['bibcode'], 'authors': data['authors'], 'claims': data['claims']})
+                tasks.task_output_results.delay({'bibcode': data['bibcode'], 'authors': data['authors'], 'claims': data['claims']})
             num_bibcodes += 1
     
     with app.session_scope() as session:
@@ -238,14 +202,9 @@ def refetch_orcidids(since=None, orcid_ids=None, **kwargs):
     
     :return: no return
     """
-    worker = RabbitMQWorker(params={
-        'publish': 'ads.orcid.fresh-claims',
-        'exchange': app.config.get('EXCHANGE', 'ads-orcid')
-    })
-    worker.connect(app.config.get('RABBITMQ_URL'))
     if orcid_ids:
         for oid in orcid_ids.split(','):
-            worker.publish({'orcidid': oid, 'force': False})
+            tasks.task_index_orcid_profile({'orcidid': oid, 'force': False})
         if not since:
             print 'Done (just the supplied orcidids)'
             return
@@ -261,7 +220,6 @@ def refetch_orcidids(since=None, orcid_ids=None, **kwargs):
                 since = '1974-11-09T22:56:52.518001Z' 
     
     from_date = get_date(since)
-    
     logger.info('Re-fetching orcidids updated since: {0}'.format(from_date.isoformat()))
     
         
@@ -272,11 +230,11 @@ def refetch_orcidids(since=None, orcid_ids=None, **kwargs):
       
     for orcidid in orcidids:
         try:
-            worker.publish({'orcidid': orcidid, 'force': False})
+            tasks.task_index_orcid_profile({'orcidid': orcidid, 'force': False})
         except: # potential backpressure (we are too fast)
             time.sleep(2)
             print 'Conn problem, retrying...', orcidid
-            worker.publish({'orcidid': orcidid, 'force': False})
+            tasks.task_index_orcid_profile.delay({'orcidid': orcidid, 'force': False})
         
     with app.session_scope() as session:
         kv = session.query(KeyValue).filter_by(key='last.refetch').first()
@@ -292,10 +250,6 @@ def refetch_orcidids(since=None, orcid_ids=None, **kwargs):
 
 
 
-def start_pipeline():
-    """Starts the workers and let them do their job"""
-    pstart.start_pipeline({}, app)
-
 
 def print_kvs():    
     """Prints the values stored in the KeyValue table."""
@@ -305,17 +259,11 @@ def print_kvs():
         for kv in session.query(KeyValue).order_by('key').all():
             print kv.key, kv.value
 
+
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Process user input.')
 
-
-    parser.add_argument('-q',
-                        '--purge_queues',
-                        dest='purge_queues',
-                        action='store_true',
-                        help='Purge all the queues so there are no remaining'
-                             ' packets')
 
     parser.add_argument('-i',
                         '--import_claims',
@@ -373,7 +321,6 @@ if __name__ == '__main__':
     parser.set_defaults(start_pipeline=False)
     args = parser.parse_args()
     
-    app.init_app()
     
     work_done = False
     
@@ -381,14 +328,6 @@ if __name__ == '__main__':
         work_done = True
         print_kvs()
 
-    if args.purge_queues:
-        purge_queues(app.config.get('WORKERS'))
-        sys.exit(0)
-
-    if args.start_pipeline:
-        start_pipeline()
-        work_done = True
-        
     if args.import_claims:
         # Send the files to be put on the queue
         run_import(args.import_claims)

@@ -4,7 +4,8 @@ import json
 
 from mock import patch, PropertyMock
 import unittest
-from ADSOrcid import app, utils
+import adsputils as utils
+from ADSOrcid import app
 from ADSOrcid import tasks
 from ADSOrcid.models import Base
 
