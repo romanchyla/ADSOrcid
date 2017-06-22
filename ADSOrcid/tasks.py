@@ -1,6 +1,7 @@
 
 from __future__ import absolute_import, unicode_literals
 import adsputils
+from adsmsg import OrcidClaims
 from ADSOrcid import app as app_module
 from ADSOrcid import updater
 from ADSOrcid.exceptions import ProcessingException, IgnorableException
@@ -14,15 +15,15 @@ import traceback
 
 
 app = app_module.create_app()
-exch = Exchange(app.conf.get('CELERY_DEFAULT_EXCHANGE', 'ads-orcid'), 
+exch = Exchange(app.conf.get('CELERY_DEFAULT_EXCHANGE', 'orcid_pipeline'), 
                 type=app.conf.get('CELERY_DEFAULT_EXCHANGE_TYPE', 'topic'))
 app.conf.CELERY_QUEUES = (
     Queue('errors', exch, routing_key='errors', durable=False, message_ttl=24*3600*5),
     Queue('check-orcidid', exch, routing_key='check-orcidid'),
     Queue('record-claim', exch, routing_key='record-claim'),
     Queue('match-claim', exch, routing_key='match-claim'),
-    Queue('output-results', exch, routing_key='output-results'),
     Queue('check-updates', exch, routing_key='check-updates'),
+    Queue('output-results', exch, routing_key='output-results'),
 )
 
 # set of logger used by the workers below
@@ -31,7 +32,7 @@ logger = adsputils.setup_logging('adsorcid', level=app.conf.get('LOGGING_LEVEL',
 # connection to the other virtual host (for sending data out)
 forwarding_connection = BrokerConnection(app.conf.get('OUTPUT_CELERY_BROKER',
                               '%s/%s' % (app.conf.get('CELERY_BROKER', 'pyamqp://'),
-                                         app.conf.get('OUTPUT_EXCHANGE', 'import-pipeline'))))
+                                         app.conf.get('OUTPUT_EXCHANGE', 'master_pipeline'))))
 class MyTask(Task):
     def on_failure(self, exc, task_id, args, kwargs, einfo):
         logger.error('{0!r} failed: {1!r}'.format(task_id, exc))
@@ -248,8 +249,11 @@ def task_match_claim(claim, **kwargs):
     cl = updater.update_record(rec, claim)
     if cl:
         app.record_claims(bibcode, rec['claims'], rec['authors'])
-        # TODO: call directly? circumvent the queue?
-        task_output_results.delay({'authors': rec.get('authors'), 'bibcode': rec['bibcode'], 'claims': rec.get('claims')})
+        msg = OrcidClaims(authors=rec.get('authors'), bibcode=rec['bibcode'], 
+                          verified=rec.get('claims', {}).get('verified', []),
+                          unverified=rec.get('claims', {}).get('unverified', [])
+                          )
+        task_output_results.delay(msg)
     else:
         logger.warning('Claim refused for bibcode:{0} and orcidid:{1}'
                         .format(claim['bibcode'], claim['orcidid']))
@@ -273,21 +277,22 @@ def task_output_results(msg):
                  'unverified': [...]
              }
             }
+    :type: adsmsg.OrcidClaims
     :return: no return
     """
-    _forward_message.apply_async(
-        (msg['bibcode'], 'orcid_claims', msg), 
-        connection=forwarding_connection)
+
+    _forward_message.apply_async((msg,), 
+                connection=forwarding_connection)
 
 
-@app.task(base=MyTask, name=app.conf.get('OUTPUT_TASKNAME', 'ads.import.pipeline.worker'), 
-                     exchange=app.conf.get('OUTPUT_EXCHANGE', 'import_pipeline'),
+@app.task(base=MyTask, name=app.conf.get('OUTPUT_TASKNAME', 'adsmp.tasks.task_update_record'), 
+                     exchange=app.conf.get('OUTPUT_EXCHANGE', 'master_pipeline'),
                      queue=app.conf.get('OUTPUT_QUEUE', 'update-record'),
                      routing_key=app.conf.get('OUTPUT_QUEUE', 'update-record'))
-def _forward_message(bibcode, key, msg):
+def _forward_message(msg):
     """A handler that can be used to forward stuff out of our
     queue. It does nothing (it doesn't process data)"""
-    logger.error('We should have never been called directly! %s' % (repr((bibcode, key, msg)))) 
+    logger.error('We should have never been called directly! %s' % (str(msg))) 
 
 
 @app.task(base=MyTask, queue='errors')

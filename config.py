@@ -19,6 +19,9 @@ SQLALCHEMY_ECHO = False
 # messages. Ie. if rabbitmq goes down/restarted, the uncomsumed messages will
 # still be there 
 
+
+CELERY_DEFAULT_EXCHANGE = 'orcid_pipeline'
+CELERY_DEFAULT_EXCHANGE_TYPE = "topic"
 CELERY_INCLUDE = ['ADSOrcid.tasks']
 ACKS_LATE=True
 PREFETCH_MULTIPLIER=1
@@ -31,9 +34,9 @@ CELERY_BROKER = 'pyamqp://'
 # that will be handling the message. This is a limitation of the current setup.
 # TODO: find a way to send a queue to the remote queue and let Celery deliver
 # it to the appropriate worker without having to specify it's name
-OUTPUT_CELERY_BROKER = 'pyamqp://guest:guest@localhost:6672/import_pipeline'
-OUTPUT_TASKNAME = 'aip.app.task_update_record'
-OUTPUT_EXCHANGE = 'import_pipeline'
+OUTPUT_CELERY_BROKER = 'pyamqp://guest:guest@localhost:6672/master_pipeline'
+OUTPUT_TASKNAME = 'adsmp.tasks.task_update_record'
+OUTPUT_EXCHANGE = 'master_pipeline'
 OUTPUT_QUEUE = 'update-record'
 
                

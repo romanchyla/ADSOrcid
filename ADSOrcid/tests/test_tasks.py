@@ -5,6 +5,7 @@ import json
 from mock import patch, PropertyMock
 import unittest
 import adsputils as utils
+from adsmsg import OrcidClaims
 from ADSOrcid import app
 from ADSOrcid import tasks
 from ADSOrcid.models import Base
@@ -159,12 +160,11 @@ class TestWorkers(unittest.TestCase):
                               ['Einstein, A', 'Socrates', 'Stern, D K', 'Munger, C']),
                              record_claims.call_args[0])
             
-            self.assertEqual({'claims': {
-                                'verified': ['-', '-', '-', '-'], 
-                                'unverified': ['-', '-', '0000-0003-3041-2092', '-']}, 
-                              'bibcode': 'BIBCODE22', 
-                              'authors': ['Einstein, A', 'Socrates', 'Stern, D K', 'Munger, C']},
-                             next_task.call_args[0][0]
+            self.assertEqual({'bibcode': 'BIBCODE22',
+                              'authors': ['Einstein, A', 'Socrates', 'Stern, D K', 'Munger, C'],
+                              'verified': ['-', '-', '-', '-'], 
+                              'unverified': ['-', '-', '0000-0003-3041-2092', '-']}, 
+                             next_task.call_args[0][0].toJSON()
                              )
             
 
