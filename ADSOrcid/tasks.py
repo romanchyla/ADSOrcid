@@ -6,40 +6,25 @@ from ADSOrcid import app as app_module
 from ADSOrcid import updater
 from ADSOrcid.exceptions import ProcessingException, IgnorableException
 from ADSOrcid.models import KeyValue
-from celery import Task
-from kombu import Exchange, Queue, BrokerConnection
+from kombu import Queue
 import datetime
-import math
 import requests
-import traceback
 
 
-app = app_module.create_app()
-exch = Exchange(app.conf.get('CELERY_DEFAULT_EXCHANGE', 'orcid_pipeline'), 
-                type=app.conf.get('CELERY_DEFAULT_EXCHANGE_TYPE', 'topic'))
+app = app_module.ADSOrcidCelery('orcid-pipeline')
 app.conf.CELERY_QUEUES = (
-    Queue('errors', exch, routing_key='errors', durable=False, message_ttl=24*3600*5),
-    Queue('check-orcidid', exch, routing_key='check-orcidid'),
-    Queue('record-claim', exch, routing_key='record-claim'),
-    Queue('match-claim', exch, routing_key='match-claim'),
-    Queue('check-updates', exch, routing_key='check-updates'),
-    Queue('output-results', exch, routing_key='output-results'),
+    Queue('check-orcidid', app.exchange, routing_key='check-orcidid'),
+    Queue('record-claim', app.exchange, routing_key='record-claim'),
+    Queue('match-claim', app.exchange, routing_key='match-claim'),
+    Queue('check-updates', app.exchange, routing_key='check-updates'),
+    Queue('output-results', app.exchange, routing_key='output-results'),
 )
-
-# set of logger used by the workers below
-logger = adsputils.setup_logging('adsorcid', level=app.conf.get('LOGGING_LEVEL', 'INFO'))
-
-# connection to the other virtual host (for sending data out)
-forwarding_connection = BrokerConnection(app.conf.get('OUTPUT_CELERY_BROKER',
-                              '%s/%s' % (app.conf.get('CELERY_BROKER', 'pyamqp://'),
-                                         app.conf.get('OUTPUT_EXCHANGE', 'master_pipeline'))))
-class MyTask(Task):
-    def on_failure(self, exc, task_id, args, kwargs, einfo):
-        logger.error('{0!r} failed: {1!r}'.format(task_id, exc))
+logger = app.logger
 
 
 
-@app.task(base=MyTask, queue='check-orcidid')
+
+@app.task(queue='check-orcidid')
 def task_index_orcid_profile(message):
     """
     Fetch a fresh profile from the orcid-service and compare
@@ -152,7 +137,7 @@ def task_index_orcid_profile(message):
 
 
 
-@app.task(base=MyTask, queue='record-claim')
+@app.task(queue='record-claim')
 def task_ingest_claim(msg, **kwargs):
     """
     Processes claims in the system; it enhances the claim
@@ -220,7 +205,7 @@ def task_ingest_claim(msg, **kwargs):
 
 
 
-@app.task(base=MyTask, queue='match-claim')
+@app.task(queue='match-claim')
 def task_match_claim(claim, **kwargs):
     """
     Takes the claim, matches it in the database (will create
@@ -259,7 +244,7 @@ def task_match_claim(claim, **kwargs):
                         .format(claim['bibcode'], claim['orcidid']))
 
 
-@app.task(base=MyTask, queue='output-results')
+@app.task(queue='output-results')
 def task_output_results(msg):
     """
     This worker will forward results to the outside 
@@ -280,34 +265,11 @@ def task_output_results(msg):
     :type: adsmsg.OrcidClaims
     :return: no return
     """
-
-    _forward_message.apply_async((msg,), 
-                connection=forwarding_connection)
-
-
-@app.task(base=MyTask, name=app.conf.get('OUTPUT_TASKNAME', 'adsmp.tasks.task_update_record'), 
-                     exchange=app.conf.get('OUTPUT_EXCHANGE', 'master_pipeline'),
-                     queue=app.conf.get('OUTPUT_QUEUE', 'update-record'),
-                     routing_key=app.conf.get('OUTPUT_QUEUE', 'update-record'))
-def _forward_message(msg):
-    """A handler that can be used to forward stuff out of our
-    queue. It does nothing (it doesn't process data)"""
-    logger.error('We should have never been called directly! %s' % (str(msg))) 
-
-
-@app.task(base=MyTask, queue='errors')
-def task_handle_errors(producer, message, redelivered=False):
-    """
-    @param producer: string, the name of the queue where the error originated
-    @param body: 
-    """
-    
-    logger.error(u'\nproducer={}\nmsg={}\n'.format(producer, message))
-    
+    app.forward_message(msg)   
     
 
 
-@app.task(base=MyTask, queue='check-updates')
+@app.task(queue='check-updates')
 def task_check_orcid_updates(msg):
     """Check the orcid microservice for updated orcid profiles.
     

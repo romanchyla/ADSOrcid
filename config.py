@@ -20,8 +20,8 @@ SQLALCHEMY_ECHO = False
 # still be there 
 
 
-CELERY_DEFAULT_EXCHANGE = 'orcid_pipeline'
-CELERY_DEFAULT_EXCHANGE_TYPE = "topic"
+#CELERY_DEFAULT_EXCHANGE = 'orcid_pipeline'
+#CELERY_DEFAULT_EXCHANGE_TYPE = "topic"
 CELERY_INCLUDE = ['ADSOrcid.tasks']
 ACKS_LATE=True
 PREFETCH_MULTIPLIER=1
@@ -36,7 +36,7 @@ CELERY_BROKER = 'pyamqp://'
 # it to the appropriate worker without having to specify it's name
 OUTPUT_CELERY_BROKER = 'pyamqp://guest:guest@localhost:6672/master_pipeline'
 OUTPUT_TASKNAME = 'adsmp.tasks.task_update_record'
-OUTPUT_EXCHANGE = 'master_pipeline'
+#OUTPUT_EXCHANGE = 'master_pipeline'
 OUTPUT_QUEUE = 'update-record'
 
                

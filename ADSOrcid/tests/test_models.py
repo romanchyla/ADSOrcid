@@ -12,7 +12,7 @@ class Test(unittest.TestCase):
     
     def setUp(self):
         unittest.TestCase.setUp(self)
-        self.app = app.create_app('test',
+        self.app = app.ADSOrcidCelery('test', local_config=\
             {
             'SQLALCHEMY_URL': 'sqlite:///',
             'SQLALCHEMY_ECHO': False
