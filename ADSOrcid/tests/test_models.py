@@ -4,14 +4,15 @@
 
 from datetime import datetime
 import unittest
+import adsputils as utils
 from ADSOrcid.models import ClaimsLog, Records, AuthorInfo, Base
-from ADSOrcid import app, utils
+from ADSOrcid import app
 
 class Test(unittest.TestCase):
     
     def setUp(self):
         unittest.TestCase.setUp(self)
-        self.app = app.create_app('test',
+        self.app = app.ADSOrcidCelery('test', local_config=\
             {
             'SQLALCHEMY_URL': 'sqlite:///',
             'SQLALCHEMY_ECHO': False

@@ -1,50 +1,30 @@
 
 from __future__ import absolute_import, unicode_literals
+import adsputils
+from adsmsg import OrcidClaims
 from ADSOrcid import app as app_module
-from ADSOrcid import utils, updater
+from ADSOrcid import updater
 from ADSOrcid.exceptions import ProcessingException, IgnorableException
 from ADSOrcid.models import KeyValue
-from celery import Task
-from celery.utils.log import get_task_logger
-from kombu import Exchange, Queue, BrokerConnection
+from kombu import Queue
 import datetime
-import math
 import requests
-import traceback
 
 
-app = app_module.create_app()
-exch = Exchange(app.conf.get('CELERY_DEFAULT_EXCHANGE', 'ads-orcid'), 
-                type=app.conf.get('CELERY_DEFAULT_EXCHANGE_TYPE', 'topic'))
+app = app_module.ADSOrcidCelery('orcid-pipeline')
 app.conf.CELERY_QUEUES = (
-    Queue('errors', exch, routing_key='errors', durable=False, message_ttl=24*3600*5),
-    Queue('check-orcidid', exch, routing_key='check-orcidid'),
-    Queue('record-claim', exch, routing_key='record-claim'),
-    Queue('match-claim', exch, routing_key='match-claim'),
-    Queue('output-results', exch, routing_key='output-results'),
-    Queue('check-updates', exch, routing_key='check-updates'),
+    Queue('check-orcidid', app.exchange, routing_key='check-orcidid'),
+    Queue('record-claim', app.exchange, routing_key='record-claim'),
+    Queue('match-claim', app.exchange, routing_key='match-claim'),
+    Queue('check-updates', app.exchange, routing_key='check-updates'),
+    Queue('output-results', app.exchange, routing_key='output-results'),
 )
-
-# set of logger used by the workers below
-error_logger = utils.setup_logging('error-queue', 'task:error', app.conf.get('LOGGING_LEVEL', 'INFO'))
-check_orcidid_logger = utils.setup_logging('check-orcidid', 'task:check-orcidid', app.conf.get('LOGGING_LEVEL', 'INFO'))
-record_claim_logger = utils.setup_logging('record-claim', 'task:record-claim', app.conf.get('LOGGING_LEVEL', 'INFO'))
-match_claim_logger = utils.setup_logging('match-claim', 'task:match-claim', app.conf.get('LOGGING_LEVEL', 'INFO'))
-output_results_logger = utils.setup_logging('output-results', 'task:output-results', app.conf.get('LOGGING_LEVEL', 'INFO'))
-check_updates_logger = utils.setup_logging('check-updates', 'task:check-updates', app.conf.get('LOGGING_LEVEL', 'INFO'))
-
-
-# connection to the other virtual host (for sending data out)
-forwarding_connection = BrokerConnection(app.conf.get('OUTPUT_CELERY_BROKER',
-                              '%s/%s' % (app.conf.get('CELRY_BROKER', 'pyamqp://'),
-                                         app.conf.get('OUTPUT_EXCHANGE', 'import-pipeline'))))
-class MyTask(Task):
-    def on_failure(self, exc, task_id, args, kwargs, einfo):
-        error_logger.error('{0!r} failed: {1!r}'.format(task_id, exc))
+logger = app.logger
 
 
 
-@app.task(base=MyTask, queue='check-orcidid')
+
+@app.task(queue='check-orcidid')
 def task_index_orcid_profile(message):
     """
     Fetch a fresh profile from the orcid-service and compare
@@ -66,7 +46,7 @@ def task_index_orcid_profile(message):
     if 'orcidid' not in message:
         raise IgnorableException('Received garbage: {}'.format(message))
     
-    message['start'] = utils.get_date()
+    message['start'] = adsputils.get_date()
     orcidid = message['orcidid']
 
     orcid_present, updated, removed = app.get_claims(orcidid,
@@ -89,7 +69,7 @@ def task_index_orcid_profile(message):
                                               orcidid=orcidid, 
                                               provenance='OrcidImporter', 
                                               status='#full-import',
-                                              date=utils.get_date()
+                                              date=adsputils.get_date()
                                               ))
     
     # find difference between what we have and what orcid has
@@ -157,7 +137,7 @@ def task_index_orcid_profile(message):
 
 
 
-@app.task(base=MyTask, queue='record-claim')
+@app.task(queue='record-claim')
 def task_ingest_claim(msg, **kwargs):
     """
     Processes claims in the system; it enhances the claim
@@ -204,7 +184,7 @@ def task_ingest_claim(msg, **kwargs):
         # check if we can translate the bibcode/identifier
         rec = app.retrieve_metadata(bibcode)
         if rec.get('bibcode') != bibcode:
-            record_claim_logger.warning('Resolved {0} into {1}'.format(bibcode, rec.get('bibcode')))
+            logger.warning('Resolved {0} into {1}'.format(bibcode, rec.get('bibcode')))
         bibcode = rec.get('bibcode') 
     
     msg['bibcode'] = bibcode
@@ -225,7 +205,7 @@ def task_ingest_claim(msg, **kwargs):
 
 
 
-@app.task(base=MyTask, queue='match-claim')
+@app.task(queue='match-claim')
 def task_match_claim(claim, **kwargs):
     """
     Takes the claim, matches it in the database (will create
@@ -254,14 +234,17 @@ def task_match_claim(claim, **kwargs):
     cl = updater.update_record(rec, claim)
     if cl:
         app.record_claims(bibcode, rec['claims'], rec['authors'])
-        # TODO: call directly? circumvent the queue?
-        task_output_results.delay({'authors': rec.get('authors'), 'bibcode': rec['bibcode'], 'claims': rec.get('claims')})
+        msg = OrcidClaims(authors=rec.get('authors'), bibcode=rec['bibcode'], 
+                          verified=rec.get('claims', {}).get('verified', []),
+                          unverified=rec.get('claims', {}).get('unverified', [])
+                          )
+        task_output_results.delay(msg)
     else:
-        match_claim_logger.warning('Claim refused for bibcode:{0} and orcidid:{1}'
+        logger.warning('Claim refused for bibcode:{0} and orcidid:{1}'
                         .format(claim['bibcode'], claim['orcidid']))
 
 
-@app.task(base=MyTask, queue='output-results')
+@app.task(queue='output-results')
 def task_output_results(msg):
     """
     This worker will forward results to the outside 
@@ -279,36 +262,14 @@ def task_output_results(msg):
                  'unverified': [...]
              }
             }
+    :type: adsmsg.OrcidClaims
     :return: no return
     """
-    _forward_message.apply_async(
-        (msg['bibcode'], 'orcid_claims', msg), 
-        connection=forwarding_connection)
-
-
-@app.task(base=MyTask, name=app.conf.get('OUTPUT_TASKNAME', 'ads.import.pipeline.worker'), 
-                     exchange=app.conf.get('OUTPUT_EXCHANGE', 'import_pipeline'),
-                     queue=app.conf.get('OUTPUT_QUEUE', 'update-record'),
-                     routing_key=app.conf.get('OUTPUT_QUEUE', 'update-record'))
-def _forward_message(bibcode, key, msg):
-    """A handler that can be used to forward stuff out of our
-    queue. It does nothing (it doesn't process data)"""
-    output_results_logger.error('We should have never been called directly! %s' % (repr((bibcode, key, msg)))) 
-
-
-@app.task(base=MyTask, queue='errors')
-def task_handle_errors(producer, message, redelivered=False):
-    """
-    @param producer: string, the name of the queue where the error originated
-    @param body: 
-    """
-    
-    error_logger.error(u'\nproducer={}\nmsg={}\n'.format(producer, message))
-    
+    app.forward_message(msg)   
     
 
 
-@app.task(base=MyTask, queue='check-updates')
+@app.task(queue='check-updates')
 def task_check_orcid_updates(msg):
     """Check the orcid microservice for updated orcid profiles.
     
@@ -334,8 +295,8 @@ def task_check_orcid_updates(msg):
         if kv is None:
             kv = KeyValue(key='last.check', value='1974-11-09T22:56:52.518001Z') #force update
         
-        latest_point = utils.get_date(kv.value) # RFC 3339 format
-        now = utils.get_date()
+        latest_point = adsputils.get_date(kv.value) # RFC 3339 format
+        now = adsputils.get_date()
         
         total_wait = app.conf.get('ORCID_CHECK_FOR_CHANGES', 60*5) #default is 5min
         delta = now - latest_point
@@ -344,7 +305,7 @@ def task_check_orcid_updates(msg):
             # register our own execution in the future
             task_check_orcid_updates.apply_async(msg, countdown=(total_wait - delta.total_seconds()) + 1)
         else:
-            check_updates_logger.info("Checking for orcid updates")
+            logger.info("Checking for orcid updates")
             
             # increase the timestamp by one microsec and get new updates
             latest_point = latest_point + datetime.timedelta(microseconds=1)
@@ -353,7 +314,7 @@ def task_check_orcid_updates(msg):
                         headers = {'Authorization': 'Bearer {0}'.format(app.conf.get('API_TOKEN'))})
             
             if r.status_code != 200:
-                check_updates_logger.error('Failed getting {0}\n{1}'.format(
+                logger.error('Failed getting {0}\n{1}'.format(
                             app.conf.get('API_ORCID_UPDATES_ENDPOINT') % kv.value,
                             r.text))
                 msg['errcount'] = msg.get('errcount', 0) + 1
@@ -377,7 +338,7 @@ def task_check_orcid_updates(msg):
             # ask for the same starting date)            
             # data should be ordered by date updated (but to be sure, let's check it); we'll save it
             # as latest 'check point'
-            dates = [utils.get_date(x['updated']) for x in data]
+            dates = [adsputils.get_date(x['updated']) for x in data]
             dates = sorted(dates, reverse=True)
             
             kv.value = dates[0].isoformat()

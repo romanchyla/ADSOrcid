@@ -3,17 +3,17 @@
 Library for updating papers (db claims/records). 
 """
 
+from ADSOrcid import names
+from ADSOrcid.models import ClaimsLog, Records
+from adsputils import get_date, setup_logging
+from datetime import timedelta
+from sqlalchemy.sql.expression import and_
 import Levenshtein
 import json
-from .utils import get_date
-from ADSOrcid.models import ClaimsLog, Records
-from ADSOrcid import utils, names
-from sqlalchemy.sql.expression import and_
 import requests
-from datetime import timedelta
 
 
-logger = utils.setup_logging('updater', 'updater')     
+logger = setup_logging('updater')     
 
 
 def update_record(rec, claim):

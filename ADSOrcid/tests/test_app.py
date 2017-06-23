@@ -20,7 +20,8 @@ import mock
 from mock import patch
 from io import BytesIO
 from datetime import datetime
-from ADSOrcid import app, utils
+import adsputils as utils
+from ADSOrcid import app
 from ADSOrcid.models import ClaimsLog, Records, AuthorInfo, Base, ChangeLog
 
 class TestAdsOrcidCelery(unittest.TestCase):
@@ -30,7 +31,7 @@ class TestAdsOrcidCelery(unittest.TestCase):
     def setUp(self):
         unittest.TestCase.setUp(self)
         proj_home = os.path.abspath(os.path.join(os.path.dirname(__file__), '../..'))
-        self.app = app.create_app('test',
+        self.app = app.ADSOrcidCelery('test', local_config=\
             {
             'SQLALCHEMY_URL': 'sqlite:///',
             'SQLALCHEMY_ECHO': False,

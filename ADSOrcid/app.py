@@ -1,8 +1,8 @@
 
 
 from .models import ClaimsLog, Records, AuthorInfo, ChangeLog
-from .utils import get_date, setup_logging
-from ADSOrcid import utils, names
+from adsputils import get_date, setup_logging, load_config, ADSCelery
+from ADSOrcid import names
 from ADSOrcid.exceptions import IgnorableException
 from celery import Celery
 from contextlib import contextmanager
@@ -31,21 +31,6 @@ bibcode_cache = cachetools.TTLCache(maxsize=2048, ttl=3600, timer=time.time, mis
 ALLOWED_STATUS = set(['claimed', 'updated', 'removed', 'unchanged', 'forced', '#full-import'])
 
 
-def create_app(app_name='ADSOrcid',
-               local_config=None):
-    """Builds and initializes the Celery application."""
-    
-    conf = utils.load_config()
-    if local_config:
-        conf.update(local_config)
-
-    app = ADSOrcidCelery(app_name,
-             broker=conf.get('CELERY_BROKER', 'pyamqp://'),
-             include=conf.get('CELERY_INCLUDE', ['ADSOrcid.app']))
-
-    app.init_app(conf)
-    return app
-
 
 def clear_caches():
     """Clears all the module caches."""
@@ -55,71 +40,8 @@ def clear_caches():
     bibcode_cache.clear()
 
 
-class ADSOrcidCelery(Celery):
+class ADSOrcidCelery(ADSCelery):
     
-    def __init__(self, app_name, *args, **kwargs):
-        Celery.__init__(self, *args, **kwargs)
-        self._config = utils.load_config()
-        self._session = None
-        self.logger = utils.setup_logging(app_name, app_name) #default logger
-        
-    
-
-    def init_app(self, config=None):
-        """This function must be called before you start working with the application
-        (or worker, script etc)
-        
-        :return None
-        """
-        
-        if self._session is not None: # the app was already instantiated
-            return
-        
-        if config:
-            self._config.update(config) #our config
-            self.conf.update(config) #celery's config (devs should be careful to avoid clashes)
-        
-        self.logger = utils.setup_logging(__file__, 'app', self._config.get('LOGGING_LEVEL', 'INFO'))
-        self._engine = create_engine(config.get('SQLALCHEMY_URL', 'sqlite:///'),
-                               echo=config.get('SQLALCHEMY_ECHO', False))
-        self._session_factory = sessionmaker()
-        self._session = scoped_session(self._session_factory)
-        self._session.configure(bind=self._engine)
-    
-    
-    def close_app(self):
-        """Closes the app"""
-        self._session = self._engine = self._session_factory = None
-        self.logger = None
-    
-        
-    @contextmanager
-    def session_scope(self):
-        """Provides a transactional session - ie. the session for the 
-        current thread/work of unit.
-        
-        Use as:
-        
-            with session_scope() as session:
-                o = AuthorInfo(...)
-                session.add(o)
-        """
-    
-        if self._session is None:
-            raise Exception('init_app() must be called before you can use the session')
-        
-        # create local session (optional step)
-        s = self._session()
-        
-        try:
-            yield s
-            s.commit()
-        except:
-            s.rollback()
-            raise
-        finally:
-            s.close()  
-            
     
     def insert_claims(self, claims):
         """
@@ -160,7 +82,7 @@ class ADSOrcidCelery(Celery):
         """
         assert(orcidid)
         if isinstance(date, basestring):
-            date = utils.get_date(date)
+            date = get_date(date)
         if status and status.lower() not in ALLOWED_STATUS:
             raise Exception('Unknown status %s' % status)
         
@@ -169,7 +91,7 @@ class ADSOrcidCelery(Celery):
                       orcidid=orcidid,
                       provenance=provenance, 
                       status=status,
-                      created=date or utils.get_date())
+                      created=date or get_date())
         else:
             with self.session_scope() as session:
                 f = session.query(ClaimsLog).filter_by(created=date).first()
