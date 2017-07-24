@@ -13,7 +13,6 @@ __license__ = 'MIT'
 
 import sys
 import time
-import pika
 import argparse
 import logging
 import traceback
@@ -23,9 +22,10 @@ from requests.packages.urllib3 import exceptions
 warnings.simplefilter('ignore', exceptions.InsecurePlatformWarning)
 
 from adsputils import setup_logging, get_date
-from ADSOrcid import app, updater, tasks
+from ADSOrcid import updater, tasks
 from ADSOrcid.models import ClaimsLog, KeyValue, Records, AuthorInfo
 
+app = tasks.app
 logger = setup_logging('run.py')
 
 

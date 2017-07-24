@@ -31,15 +31,15 @@ class TestPipeline(unittest.TestCase):
     
     def setUp(self):
         unittest.TestCase.setUp(self)
-        self.app = app.create_app('test')
-        Base.metadata.bind = self.app._session.get_bind()
-        Base.metadata.create_all()
+        self.app = tasks.app
+        #Base.metadata.bind = self.app._session.get_bind()
+        #Base.metadata.create_all()
     
     
     def tearDown(self):
         unittest.TestCase.tearDown(self)
-        Base.metadata.drop_all()
-        self.app.close_app()    
+        #Base.metadata.drop_all()
+        #self.app.close_app()    
     
 
     def test_functionality_on_new_claim(self):
