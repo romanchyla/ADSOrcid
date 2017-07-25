@@ -13,7 +13,6 @@ __license__ = 'MIT'
 
 import sys
 import time
-import pika
 import argparse
 import logging
 import traceback
@@ -23,9 +22,10 @@ from requests.packages.urllib3 import exceptions
 warnings.simplefilter('ignore', exceptions.InsecurePlatformWarning)
 
 from adsputils import setup_logging, get_date
-from ADSOrcid import app, updater, tasks
+from ADSOrcid import updater, tasks
 from ADSOrcid.models import ClaimsLog, KeyValue, Records, AuthorInfo
 
+from ADSOrcid.tasks import app
 logger = setup_logging('run.py')
 
 
@@ -45,7 +45,7 @@ def run_import(claims_file, queue='ads.orcid.claims', **kwargs):
     logging.captureWarnings(True)
     logger.info('Loading records from: {0}'.format(claims_file))
     c = []
-    importer.import_recs(claims_file, collector=c)
+    app.import_recs(claims_file, collector=c)
     
     if len(c):
         for claim in c:
@@ -65,7 +65,7 @@ def reindex_claims(since=None, orcid_ids=None, **kwargs):
     :return: no return
     """
     if orcid_ids:
-        for oid in orcid_ids.split(','):
+        for oid in orcid_ids:
             tasks.task_index_orcid_profile.delay({'orcidid': oid, 'force': True})
         if not since:
             print 'Done (just the supplied orcidids)'
@@ -143,7 +143,7 @@ def repush_claims(since=None, orcid_ids=None, **kwargs):
     :return: no return
     """
     if orcid_ids:
-        for oid in orcid_ids.split(','):
+        for oid in orcid_ids:
             tasks.task_index_orcid_profile({'orcidid': oid, 'force': False})
         if not since:
             print 'Done (just the supplied orcidids)'
@@ -203,7 +203,7 @@ def refetch_orcidids(since=None, orcid_ids=None, **kwargs):
     :return: no return
     """
     if orcid_ids:
-        for oid in orcid_ids.split(','):
+        for oid in orcid_ids:
             tasks.task_index_orcid_profile({'orcidid': oid, 'force': False})
         if not since:
             print 'Done (just the supplied orcidids)'
@@ -259,6 +259,51 @@ def print_kvs():
         for kv in session.query(KeyValue).order_by('key').all():
             print kv.key, kv.value
 
+def show_api_diagnostics(orcid_ids=None, bibcodes=None):
+    """
+    Prints various responses that we receive from our API.
+    """
+    
+    print 'API_ENDPOINT', app.conf.get('API_ENDPOINT', None)
+    print 'API_SOLR_QUERY_ENDPOINT', app.conf.get('API_SOLR_QUERY_ENDPOINT', None)
+    print 'API_ORCID_EXPORT_PROFILE', app.conf.get('API_ORCID_EXPORT_PROFILE', None)
+    print 'API_ORCID_UPDATES_ENDPOINT', app.conf.get('API_ORCID_UPDATES_ENDPOINT', None)
+    
+    
+    if orcid_ids:
+        for o in orcid_ids:
+            print o
+            print 'DB Model', app.retrieve_orcid(o)
+            print '=' * 80 + '\n'
+            print 'Author info', app.harvest_author_info(o)
+            print '=' * 80 + '\n'
+            print 'Public orcid profile', app.get_public_orcid_profile(o)
+            print '=' * 80 + '\n'
+            print 'ADS Orcid Profile', app.get_ads_orcid_profile(o)
+            print '=' * 80 + '\n'
+            print 'Harvested Author Info', app.retrieve_orcid(o)
+            print '=' * 80 + '\n'
+            orcid_present, updated, removed = app.get_claims(o,
+                         app.conf.get('API_TOKEN'), 
+                         app.conf.get('API_ORCID_EXPORT_PROFILE') % o,
+                         orcid_identifiers_order=app.conf.get('ORCID_IDENTIFIERS_ORDER', {'bibcode': 9, '*': -1})
+                         )
+            print 'All of orcid', len(orcid_present), orcid_present
+            print 'In need of update', len(updated), updated
+            print 'In need of removal', len(removed), removed
+            print '=' * 80 + '\n'
+    else:
+        print 'If you want to see what I see for authors, give me some orcid ids'
+        
+    if bibcodes:
+        for b in bibcodes:
+            print b, app.retrieve_metadata(b)
+    else:
+        print 'If you want to see what I see give me some bibcodes'
+    
+    
+
+    
 
 if __name__ == '__main__':
 
@@ -272,11 +317,6 @@ if __name__ == '__main__':
                         type=str,
                         help='Path to the claims file to import')
     
-    parser.add_argument('-p',
-                        '--start_pipeline',
-                        dest='start_pipeline',
-                        action='store_true',
-                        help='Start the pipeline')
     
     parser.add_argument('-r',
                         '--reindex_claims',
@@ -310,6 +350,13 @@ if __name__ == '__main__':
                         default=None,
                         help='Comma delimited list of orcid-ids to re-index (use with refetch orcidids)')
     
+    parser.add_argument('-b', 
+                        '--bibcodes', 
+                        dest='bibcodes', 
+                        action='store',
+                        default=None,
+                        help='Comma delimited list of bibcodes (for diagnostics)')
+    
     parser.add_argument('-k', 
                         '--kv', 
                         dest='kv', 
@@ -317,16 +364,27 @@ if __name__ == '__main__':
                         default=False,
                         help='Show current values of KV store')
     
-    parser.set_defaults(purge_queues=False)
-    parser.set_defaults(start_pipeline=False)
-    args = parser.parse_args()
+    parser.add_argument('-d', 
+                        '--diagnose', 
+                        dest='diagnose', 
+                        action='store_true',
+                        default=False,
+                        help='For the supplied ORCiD IDs show what we get from the API')
     
+    args = parser.parse_args()
+    if args.orcid_ids:
+        args.orcid_ids = [x.strip() for x in args.orcid_ids.split(',')]
+    if args.bibcodes:
+        args.bibcodes = [x.strip() for x in args.bibcodes.split(',')]
     
     work_done = False
     
     if args.kv:
         work_done = True
         print_kvs()
+        
+    if args.diagnose:
+        show_api_diagnostics(args.orcid_ids, args.bibcodes)
 
     if args.import_claims:
         # Send the files to be put on the queue
