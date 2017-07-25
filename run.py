@@ -369,7 +369,7 @@ if __name__ == '__main__':
                         dest='diagnose', 
                         action='store_true',
                         default=False,
-                        help='For the supplied ORCiD IDs show what we get from the API')
+                        help='Show me what you would do with ORCiDs/bibcodes')
     
     args = parser.parse_args()
     if args.orcid_ids:
@@ -384,7 +384,7 @@ if __name__ == '__main__':
         print_kvs()
         
     if args.diagnose:
-        show_api_diagnostics(args.orcid_ids, args.bibcodes)
+        show_api_diagnostics(args.orcid_ids or ['0000-0003-3041-2092'], args.bibcodes or ['2015arXiv150305881C'])
 
     if args.import_claims:
         # Send the files to be put on the queue
