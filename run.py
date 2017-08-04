@@ -113,11 +113,11 @@ def reindex_claims(since=None, orcid_ids=None, **kwargs):
       
     for orcidid in orcidids:
         try:
-            tasks.task_index_orcid_profile.delay({'orcidid': oid, 'force': True})
+            tasks.task_index_orcid_profile.delay({'orcidid': orcidid, 'force': True})
         except: # potential backpressure (we are too fast)
             time.sleep(2)
             print 'Conn problem, retrying...', orcidid
-            tasks.task_index_orcid_profile.delay({'orcidid': oid, 'force': True})
+            tasks.task_index_orcid_profile.delay({'orcidid': orcidid, 'force': True})
         
     with app.session_scope() as session:
         kv = session.query(KeyValue).filter_by(key='last.reindex').first()
