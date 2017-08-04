@@ -95,7 +95,7 @@ def reindex_claims(since=None, orcid_ids=None, **kwargs):
                     changed = updater.reindex_all_claims(app, orcidid, since=from_date.isoformat(), ignore_errors=True)
                     if len(changed):
                         orcidids.add(orcidid)
-                    tasks.task_index_orcid_profile.delay({'orcidid': oid, 'force': True})
+                    tasks.task_index_orcid_profile.delay({'orcidid': orcidid, 'force': True})
                 except:
                     print 'Error processing: {0}'.format(orcidid)
                     traceback.print_exc()
@@ -106,7 +106,7 @@ def reindex_claims(since=None, orcid_ids=None, **kwargs):
     print 'Now harvesting orcid profiles...'
     
     # then get all new/old orcidids from orcid-service
-    all_orcids = set(updater.get_all_touched_profiles(from_date.isoformat()))
+    all_orcids = set(updater.get_all_touched_profiles(app, from_date.isoformat()))
     orcidids = all_orcids.difference(orcidids)
     from_date = get_date()
     
