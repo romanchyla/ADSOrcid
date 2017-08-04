@@ -92,7 +92,7 @@ def reindex_claims(since=None, orcid_ids=None, **kwargs):
             orcidid = author.orcidid
             if orcidid and orcidid.strip() != "":
                 try:
-                    changed = updater.reindex_all_claims(orcidid, since=from_date.isoformat(), ignore_errors=True)
+                    changed = updater.reindex_all_claims(app, orcidid, since=from_date.isoformat(), ignore_errors=True)
                     if len(changed):
                         orcidids.add(orcidid)
                     tasks.task_index_orcid_profile.delay({'orcidid': oid, 'force': True})
