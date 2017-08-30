@@ -187,7 +187,7 @@ class TestWorkers(unittest.TestCase):
             
             self.assertEqual(next_task.call_args_list[0][0][0]['orcidid'], '0000-0003-3041-2092')
             self.assertEqual(next_task.call_args_list[1][0][0]['orcidid'], '0000-0003-3041-2093')
-            self.assertEqual(str(recheck_task.call_args_list[0]), "call({u'errcount': 0}, countdown=300)")
+            self.assertEqual(str(recheck_task.call_args_list[0]), "call(args=({u'errcount': 0},), countdown=300)")
             
             
 

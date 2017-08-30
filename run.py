@@ -224,7 +224,7 @@ def refetch_orcidids(since=None, orcid_ids=None, **kwargs):
     
         
     # then get all new/old orcidids from orcid-service
-    orcidids = set(updater.get_all_touched_profiles(from_date.isoformat()))
+    orcidids = set(updater.get_all_touched_profiles(app, from_date.isoformat()))
     from_date = get_date()
     
       

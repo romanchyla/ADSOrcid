@@ -58,7 +58,7 @@ def task_index_orcid_profile(message):
     
     if not updated and not removed:
         # reschedule re-check
-        task_index_orcid_profile.apply_async(message, countdown = app.conf.get('ORCID_PROFILE_RECHECK_WINDOW', 3600*24))
+        task_index_orcid_profile.apply_async(args=(message,), countdown = app.conf.get('ORCID_PROFILE_RECHECK_WINDOW', 3600*24))
         return
     
     to_claim = []
@@ -133,7 +133,7 @@ def task_index_orcid_profile(message):
                 task_ingest_claim.delay(claim)
             
     # reschedule future check
-    task_index_orcid_profile.apply_async(message, countdown = app.conf.get('ORCID_PROFILE_RECHECK_WINDOW', 3600*24))
+    task_index_orcid_profile.apply_async(args=(message,), countdown = app.conf.get('ORCID_PROFILE_RECHECK_WINDOW', 3600*24))
 
 
 
@@ -303,7 +303,7 @@ def task_check_orcid_updates(msg):
         
         if delta.total_seconds() < total_wait:
             # register our own execution in the future
-            task_check_orcid_updates.apply_async(msg, countdown=(total_wait - delta.total_seconds()) + 1)
+            task_check_orcid_updates.apply_async(args=(msg,), countdown=(total_wait - delta.total_seconds()) + 1)
         else:
             logger.info("Checking for orcid updates")
             
@@ -320,17 +320,17 @@ def task_check_orcid_updates(msg):
                 msg['errcount'] = msg.get('errcount', 0) + 1
                 
                 # schedule future execution offset by number of errors (rca: do exponential?)
-                task_check_orcid_updates.apply_async(msg, countdown = total_wait + total_wait * msg['errcount'])
+                task_check_orcid_updates.apply_async(args=(msg,), countdown = total_wait + total_wait * msg['errcount'])
                 return
             
             
             if r.text.strip() == "":
-                return task_check_orcid_updates.apply_async(msg, countdown = total_wait)
+                return task_check_orcid_updates.apply_async(args=(msg,), countdown = total_wait)
             
             data = r.json()
             
             if len(data) == 0:
-                return task_check_orcid_updates.apply_async(msg, countdown = total_wait)
+                return task_check_orcid_updates.apply_async(args=(msg,), countdown = total_wait)
             
             msg['errcount'] = 0 # success, we got data from the api, reset the counter
 
@@ -350,7 +350,7 @@ def task_check_orcid_updates(msg):
                 task_index_orcid_profile.delay(payload)
             
             # recheck again
-            task_check_orcid_updates.apply_async(msg, countdown = total_wait)
+            task_check_orcid_updates.apply_async(args=(msg,), countdown = total_wait)
 
 
 if __name__ == '__main__':
