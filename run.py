@@ -144,7 +144,7 @@ def repush_claims(since=None, orcid_ids=None, **kwargs):
     """
     if orcid_ids:
         for oid in orcid_ids:
-            tasks.task_index_orcid_profile({'orcidid': oid, 'force': False})
+            tasks.task_index_orcid_profile.delay({'orcidid': oid, 'force': False})
         if not since:
             print 'Done (just the supplied orcidids)'
             return
@@ -230,7 +230,7 @@ def refetch_orcidids(since=None, orcid_ids=None, **kwargs):
       
     for orcidid in orcidids:
         try:
-            tasks.task_index_orcid_profile({'orcidid': orcidid, 'force': False})
+            tasks.task_index_orcid_profile.delay({'orcidid': orcidid, 'force': False})
         except: # potential backpressure (we are too fast)
             time.sleep(2)
             print 'Conn problem, retrying...', orcidid
