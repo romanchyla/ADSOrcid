@@ -211,13 +211,14 @@ def reindex_all_claims(app, orcidid, since=None, ignore_errors=False):
         return list(recs_modified)
 
 
-def get_all_touched_profiles(app, since='1974-11-09T22:56:52.518001Z'):
+def get_all_touched_profiles(app, since='1974-11-09T22:56:52.518001Z', max_failures=5, max_cons_failures=2):
     """Queries the orcid-service for all new/updated
     orcid profiles"""
     
     orcid_ids = set()
     latest_point = get_date(since) # RFC 3339 format
-        
+    failures = cons_failures = 0
+    
     while True:
         # increase the timestamp by one microsec and get new updates
         latest_point = latest_point + timedelta(microseconds=1)
@@ -226,6 +227,12 @@ def get_all_touched_profiles(app, since='1974-11-09T22:56:52.518001Z'):
                     headers = {'Authorization': 'Bearer {0}'.format(app.conf.get('API_TOKEN'))})
     
         if r.status_code != 200:
+            cons_failures += 1
+            failures += 1
+            if cons_failures < max_cons_failures and failures < max_failures:
+                logger.warn('Error querying API enpoint, will retry: failures=%s, cons_failures=%s' % (failures, cons_failures))
+                latest_point = latest_point - timedelta(microseconds=1)
+                continue
             raise Exception(r.text)
         
         if r.text.strip() == "":
@@ -237,6 +244,8 @@ def get_all_touched_profiles(app, since='1974-11-09T22:56:52.518001Z'):
         
         if len(data) == 0:
             break
+        
+        cons_failures = 0 # reset
         
         # data should be ordered by date update (but to be sure, let's check it); we'll save it
         # as latest 'check point'

@@ -56,11 +56,6 @@ def task_index_orcid_profile(message):
                          orcid_identifiers_order=app.conf.get('ORCID_IDENTIFIERS_ORDER', {'bibcode': 9, '*': -1})
                          )
     
-    if not updated and not removed:
-        # reschedule re-check
-        task_index_orcid_profile.apply_async(args=(message,), countdown = app.conf.get('ORCID_PROFILE_RECHECK_WINDOW', 3600*24))
-        return
-    
     to_claim = []
     
     #always insert a record that marks the beginning of a full-import
