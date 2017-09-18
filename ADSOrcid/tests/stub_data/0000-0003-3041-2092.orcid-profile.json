@@ -1,1217 +1,810 @@
 {
-    "error-desc": null,
-    "message-version": "1.2",
-    "orcid-profile": {
-        "client-type": null,
-        "group-type": null,
-        "orcid": null,
-        "orcid-activities": {
-            "affiliations": null,
-            "funding-list": null,
-            "orcid-works": {
-                "orcid-work": [
-                    {
-                        "country": null,
-                        "created-date": {
-                            "value": 1430425388815
-                        },
-                        "journal-title": null,
-                        "language-code": null,
-                        "last-modified-date": {
-                            "value": 1442401141721
-                        },
-                        "publication-date": null,
-                        "put-code": "16320244",
-                        "short-description": "A large portion of the astronomical research of the 19th and early 20th centuries was reported in publications written and distributed by individual observatories. Many of these collections were not widely distributed and complete sets of these volumes are now difficult to locate. The ADS has taken on the effort to put these publications online and make them searchable. In this paper I will outline the project and discuss some of the highlights and challenges the ADS has encountered over the duration of the project.",
-                        "source": {
-                            "source-client-id": {
-                                "host": "orcid.org",
-                                "path": "APP-BA5POB6F5D7CTHX2",
-                                "uri": "http://orcid.org/client/APP-BA5POB6F5D7CTHX2",
-                                "value": null
+    "activities-summary": {
+        "educations": {
+            "education-summary": [],
+            "last-modified-date": null,
+            "path": "/0000-0003-3041-2092/educations"
+        },
+        "employments": {
+            "employment-summary": [],
+            "last-modified-date": null,
+            "path": "/0000-0003-3041-2092/employments"
+        },
+        "fundings": {
+            "group": [],
+            "last-modified-date": null,
+            "path": "/0000-0003-3041-2092/fundings"
+        },
+        "last-modified-date": {
+            "value": 1476747559382
+        },
+        "path": "/0000-0003-3041-2092/activities",
+        "peer-reviews": {
+            "group": [],
+            "last-modified-date": null,
+            "path": "/0000-0003-3041-2092/peer-reviews"
+        },
+        "works": {
+            "group": [
+                {
+                    "external-ids": {
+                        "external-id": [
+                            {
+                                "external-id-relationship": "SELF",
+                                "external-id-type": "other-id",
+                                "external-id-url": null,
+                                "external-id-value": "11310415"
                             },
-                            "source-date": {
-                                "value": 1430425388815
-                            },
-                            "source-name": {
-                                "value": "NASA ADS"
-                            },
-                            "source-orcid": null
-                        },
-                        "url": {
-                            "value": "https://ui.adsabs.harvard.edu/#abs/2015ASPC..492..150T"
-                        },
-                        "visibility": "PUBLIC",
-                        "work-citation": null,
-                        "work-contributors": {
-                            "contributor": [
-                                {
-                                    "contributor-attributes": {
-                                        "contributor-role": "AUTHOR",
-                                        "contributor-sequence": null
-                                    },
-                                    "contributor-email": null,
-                                    "contributor-orcid": null,
-                                    "credit-name": {
-                                        "value": "Thompson, D. M.",
-                                        "visibility": "PUBLIC"
-                                    }
-                                },
-                                {
-                                    "contributor-attributes": {
-                                        "contributor-role": "AUTHOR",
-                                        "contributor-sequence": null
-                                    },
-                                    "contributor-email": null,
-                                    "contributor-orcid": null,
-                                    "credit-name": {
-                                        "value": "Henneken, E. A.",
-                                        "visibility": "PUBLIC"
-                                    }
-                                },
-                                {
-                                    "contributor-attributes": {
-                                        "contributor-role": "AUTHOR",
-                                        "contributor-sequence": null
-                                    },
-                                    "contributor-email": null,
-                                    "contributor-orcid": null,
-                                    "credit-name": {
-                                        "value": "Grant, C. S.",
-                                        "visibility": "PUBLIC"
-                                    }
-                                },
-                                {
-                                    "contributor-attributes": {
-                                        "contributor-role": "AUTHOR",
-                                        "contributor-sequence": null
-                                    },
-                                    "contributor-email": null,
-                                    "contributor-orcid": null,
-                                    "credit-name": {
-                                        "value": "Holachek, A.",
-                                        "visibility": "PUBLIC"
-                                    }
-                                },
-                                {
-                                    "contributor-attributes": {
-                                        "contributor-role": "AUTHOR",
-                                        "contributor-sequence": null
-                                    },
-                                    "contributor-email": null,
-                                    "contributor-orcid": null,
-                                    "credit-name": {
-                                        "value": "Accomazzi, A.",
-                                        "visibility": "PUBLIC"
-                                    }
-                                },
-                                {
-                                    "contributor-attributes": {
-                                        "contributor-role": "AUTHOR",
-                                        "contributor-sequence": null
-                                    },
-                                    "contributor-email": null,
-                                    "contributor-orcid": null,
-                                    "credit-name": {
-                                        "value": "Kurtz, M. J.",
-                                        "visibility": "PUBLIC"
-                                    }
-                                },
-                                {
-                                    "contributor-attributes": {
-                                        "contributor-role": "AUTHOR",
-                                        "contributor-sequence": null
-                                    },
-                                    "contributor-email": null,
-                                    "contributor-orcid": null,
-                                    "credit-name": {
-                                        "value": "Chyla, R.",
-                                        "visibility": "PUBLIC"
-                                    }
-                                },
-                                {
-                                    "contributor-attributes": {
-                                        "contributor-role": "AUTHOR",
-                                        "contributor-sequence": null
-                                    },
-                                    "contributor-email": null,
-                                    "contributor-orcid": null,
-                                    "credit-name": {
-                                        "value": "Luker, J.",
-                                        "visibility": "PUBLIC"
-                                    }
-                                },
-                                {
-                                    "contributor-attributes": {
-                                        "contributor-role": "AUTHOR",
-                                        "contributor-sequence": null
-                                    },
-                                    "contributor-email": null,
-                                    "contributor-orcid": null,
-                                    "credit-name": {
-                                        "value": "Murray, S. S.",
-                                        "visibility": "PUBLIC"
-                                    }
-                                }
-                            ]
-                        },
-                        "work-external-identifiers": {
-                            "scope": null,
-                            "work-external-identifier": [
-                                {
-                                    "work-external-identifier-id": {
-                                        "value": "2015ASPC..492..150T"
-                                    },
-                                    "work-external-identifier-type": "BIBCODE"
-                                },
-                                {
-                                    "work-external-identifier-id": {
-                                        "value": "10867277"
-                                    },
-                                    "work-external-identifier-type": "OTHER_ID"
-                                }
-                            ]
-                        },
-                        "work-source": null,
-                        "work-title": {
-                            "subtitle": null,
-                            "title": {
-                                "value": "Saving the Orphaned Astronomical Literature"
-                            },
-                            "translated-title": null
-                        },
-                        "work-type": "JOURNAL_ARTICLE"
+                            {
+                                "external-id-relationship": "SELF",
+                                "external-id-type": "bibcode",
+                                "external-id-url": null,
+                                "external-id-value": "2016arXiv160107858A"
+                            }
+                        ]
                     },
-                    {
-                        "country": null,
-                        "created-date": {
-                            "value": 1428347859246
-                        },
-                        "journal-title": null,
-                        "language-code": null,
-                        "last-modified-date": {
-                            "value": 1442401141721
-                        },
-                        "publication-date": null,
-                        "put-code": "16027353",
-                        "short-description": "In the spring of 1993, the Smithsonian/NASA Astrophysics Data System (ADS) first launched its bibliographic search system. It was known then as the ADS Abstract Service, a component of the larger Astrophysics Data System effort which had developed an interoperable data system now seen as a precursor of the Virtual Observatory. As a result of the massive technological and sociological changes in the field of scholarly communication, the ADS is now completing the most ambitious technological upgrade in its twenty-year history. Code-named ADS 2.0, the new system features: an IT platform built on web and digital library standards; a new, extensible, industrial strength search engine; a public API with various access control capabilities; a set of applications supporting search, export, visualization, analysis; a collaborative, open source development model; and enhanced indexing of content which includes the full-text of astronomy and physics publications. The changes in the ADS platform affect all aspects of the system and its operations, including: the process through which data and metadata are harvested, curated and indexed; the interface and paradigm used for searching the database; and the follow-up analysis capabilities available to the users. This poster describes the choices behind the technical overhaul of the system, the technology stack used, and the opportunities which the upgrade is providing us with, namely gains in productivity and enhancements in our system capabilities.",
-                        "source": {
-                            "source-client-id": {
-                                "host": "orcid.org",
-                                "path": "APP-BA5POB6F5D7CTHX2",
-                                "uri": "http://orcid.org/client/APP-BA5POB6F5D7CTHX2",
-                                "value": null
-                            },
-                            "source-date": {
-                                "value": 1428347859246
-                            },
-                            "source-name": {
-                                "value": "NASA ADS"
-                            },
-                            "source-orcid": null
-                        },
-                        "url": {
-                            "value": "https://ui.adsabs.harvard.edu/#abs/2014AAS...22325503A"
-                        },
-                        "visibility": "PUBLIC",
-                        "work-citation": null,
-                        "work-contributors": {
-                            "contributor": [
-                                {
-                                    "contributor-attributes": {
-                                        "contributor-role": "AUTHOR",
-                                        "contributor-sequence": null
-                                    },
-                                    "contributor-email": null,
-                                    "contributor-orcid": null,
-                                    "credit-name": {
-                                        "value": "Accomazzi, Alberto",
-                                        "visibility": "PUBLIC"
-                                    }
-                                },
-                                {
-                                    "contributor-attributes": {
-                                        "contributor-role": "AUTHOR",
-                                        "contributor-sequence": null
-                                    },
-                                    "contributor-email": null,
-                                    "contributor-orcid": null,
-                                    "credit-name": {
-                                        "value": "Kurtz, M. J.",
-                                        "visibility": "PUBLIC"
-                                    }
-                                },
-                                {
-                                    "contributor-attributes": {
-                                        "contributor-role": "AUTHOR",
-                                        "contributor-sequence": null
-                                    },
-                                    "contributor-email": null,
-                                    "contributor-orcid": null,
-                                    "credit-name": {
-                                        "value": "Henneken, E. A.",
-                                        "visibility": "PUBLIC"
-                                    }
-                                },
-                                {
-                                    "contributor-attributes": {
-                                        "contributor-role": "AUTHOR",
-                                        "contributor-sequence": null
-                                    },
-                                    "contributor-email": null,
-                                    "contributor-orcid": null,
-                                    "credit-name": {
-                                        "value": "Grant, C. S.",
-                                        "visibility": "PUBLIC"
-                                    }
-                                },
-                                {
-                                    "contributor-attributes": {
-                                        "contributor-role": "AUTHOR",
-                                        "contributor-sequence": null
-                                    },
-                                    "contributor-email": null,
-                                    "contributor-orcid": null,
-                                    "credit-name": {
-                                        "value": "Thompson, D.",
-                                        "visibility": "PUBLIC"
-                                    }
-                                },
-                                {
-                                    "contributor-attributes": {
-                                        "contributor-role": "AUTHOR",
-                                        "contributor-sequence": null
-                                    },
-                                    "contributor-email": null,
-                                    "contributor-orcid": null,
-                                    "credit-name": {
-                                        "value": "Luker, J.",
-                                        "visibility": "PUBLIC"
-                                    }
-                                },
-                                {
-                                    "contributor-attributes": {
-                                        "contributor-role": "AUTHOR",
-                                        "contributor-sequence": null
-                                    },
-                                    "contributor-email": null,
-                                    "contributor-orcid": null,
-                                    "credit-name": {
-                                        "value": "Chyla, R.",
-                                        "visibility": "PUBLIC"
-                                    }
-                                },
-                                {
-                                    "contributor-attributes": {
-                                        "contributor-role": "AUTHOR",
-                                        "contributor-sequence": null
-                                    },
-                                    "contributor-email": null,
-                                    "contributor-orcid": null,
-                                    "credit-name": {
-                                        "value": "Murray, S. S.",
-                                        "visibility": "PUBLIC"
-                                    }
-                                }
-                            ]
-                        },
-                        "work-external-identifiers": {
-                            "scope": null,
-                            "work-external-identifier": [
-                                {
-                                    "work-external-identifier-id": {
-                                        "value": "2014AAS...22325503A"
-                                    },
-                                    "work-external-identifier-type": "BIBCODE"
-                                }
-                            ]
-                        },
-                        "work-source": null,
-                        "work-title": {
-                            "subtitle": null,
-                            "title": {
-                                "value": "Introducing ADS 2.0"
-                            },
-                            "translated-title": null
-                        },
-                        "work-type": "JOURNAL_ARTICLE"
+                    "last-modified-date": {
+                        "value": 1476747559382
                     },
-                    {
-                        "country": null,
-                        "created-date": {
-                            "value": 1426801891567
-                        },
-                        "journal-title": null,
-                        "language-code": null,
-                        "last-modified-date": {
-                            "value": 1442401141721
-                        },
-                        "publication-date": null,
-                        "put-code": "15824078",
-                        "short-description": "In this poster we describe the developments of the new ADS platform over the past year, focusing on the functionality which improves its discovery and curation capabilities.The ADS Application Programming Interface (API) is being updated to support authenticated access to the entire suite of ADS services, in addition to the search functionality itself. This allows programmatic access to resources which are specific to a user or class of users.A new interface, built directly on top of the API, now provides a more intuitive search experience and takes into account the best practices in web usability and responsive design. The interface now incorporates in-line views of graphics from the AAS Astroexplorer and the ADS All-Sky Survey image collections.The ADS Private Libraries, first introduced over 10 years ago, are now being enhanced to allow the bookmarking, tagging and annotation of records of interest. In addition, libraries can be shared with one or more ADS users, providing an easy way to collaborate in the curation of lists of papers. A library can also be explicitly made public and shared at large via the publishing of its URL.In collaboration with the AAS, the ADS plans to support the adoption of ORCID identifiers by implementing a plugin which will simplify the import of papers in ORCID via a query to the ADS API. Deeper integration between the two systems will depend on available resources and feedback from the community.",
-                        "source": {
-                            "source-client-id": {
-                                "host": "orcid.org",
-                                "path": "APP-BA5POB6F5D7CTHX2",
-                                "uri": "http://orcid.org/client/APP-BA5POB6F5D7CTHX2",
-                                "value": null
+                    "work-summary": [
+                        {
+                            "created-date": {
+                                "value": 1476747559382
                             },
-                            "source-date": {
-                                "value": 1426801891567
+                            "display-index": "0",
+                            "external-ids": {
+                                "external-id": [
+                                    {
+                                        "external-id-relationship": "SELF",
+                                        "external-id-type": "bibcode",
+                                        "external-id-url": null,
+                                        "external-id-value": "2016arXiv160107858A"
+                                    },
+                                    {
+                                        "external-id-relationship": "SELF",
+                                        "external-id-type": "other-id",
+                                        "external-id-url": null,
+                                        "external-id-value": "11310415"
+                                    }
+                                ]
                             },
-                            "source-name": {
-                                "value": "NASA ADS"
+                            "last-modified-date": {
+                                "value": 1476747559382
                             },
-                            "source-orcid": null
-                        },
-                        "url": {
-                            "value": "http://adsabs.harvard.edu/cgi-bin/nph-data_query?bibcode=2015AAS...22533655A&link_type=ARTICLE"
-                        },
-                        "visibility": "PUBLIC",
-                        "work-citation": null,
-                        "work-contributors": {
-                            "contributor": [
-                                {
-                                    "contributor-attributes": {
-                                        "contributor-role": "AUTHOR",
-                                        "contributor-sequence": null
-                                    },
-                                    "contributor-email": null,
-                                    "contributor-orcid": null,
-                                    "credit-name": {
-                                        "value": "Accomazzi, Alberto",
-                                        "visibility": "PUBLIC"
-                                    }
+                            "path": "/0000-0003-3041-2092/work/27449390",
+                            "publication-date": {
+                                "day": null,
+                                "media-type": null,
+                                "month": {
+                                    "value": "01"
                                 },
-                                {
-                                    "contributor-attributes": {
-                                        "contributor-role": "AUTHOR",
-                                        "contributor-sequence": null
-                                    },
-                                    "contributor-email": null,
-                                    "contributor-orcid": null,
-                                    "credit-name": {
-                                        "value": "Kurtz, Michael J.",
-                                        "visibility": "PUBLIC"
-                                    }
-                                },
-                                {
-                                    "contributor-attributes": {
-                                        "contributor-role": "AUTHOR",
-                                        "contributor-sequence": null
-                                    },
-                                    "contributor-email": null,
-                                    "contributor-orcid": null,
-                                    "credit-name": {
-                                        "value": "Henneken, Edwin A.",
-                                        "visibility": "PUBLIC"
-                                    }
-                                },
-                                {
-                                    "contributor-attributes": {
-                                        "contributor-role": "AUTHOR",
-                                        "contributor-sequence": null
-                                    },
-                                    "contributor-email": null,
-                                    "contributor-orcid": null,
-                                    "credit-name": {
-                                        "value": "Grant, Carolyn S.",
-                                        "visibility": "PUBLIC"
-                                    }
-                                },
-                                {
-                                    "contributor-attributes": {
-                                        "contributor-role": "AUTHOR",
-                                        "contributor-sequence": null
-                                    },
-                                    "contributor-email": null,
-                                    "contributor-orcid": null,
-                                    "credit-name": {
-                                        "value": "Thompson, Donna",
-                                        "visibility": "PUBLIC"
-                                    }
-                                },
-                                {
-                                    "contributor-attributes": {
-                                        "contributor-role": "AUTHOR",
-                                        "contributor-sequence": null
-                                    },
-                                    "contributor-email": null,
-                                    "contributor-orcid": null,
-                                    "credit-name": {
-                                        "value": "Chyla, Roman",
-                                        "visibility": "PUBLIC"
-                                    }
-                                },
-                                {
-                                    "contributor-attributes": {
-                                        "contributor-role": "AUTHOR",
-                                        "contributor-sequence": null
-                                    },
-                                    "contributor-email": null,
-                                    "contributor-orcid": null,
-                                    "credit-name": {
-                                        "value": "Holachek, Alexandra",
-                                        "visibility": "PUBLIC"
-                                    }
-                                },
-                                {
-                                    "contributor-attributes": {
-                                        "contributor-role": "AUTHOR",
-                                        "contributor-sequence": null
-                                    },
-                                    "contributor-email": null,
-                                    "contributor-orcid": null,
-                                    "credit-name": {
-                                        "value": "Sudilovsky, Vladimir",
-                                        "visibility": "PUBLIC"
-                                    }
-                                },
-                                {
-                                    "contributor-attributes": {
-                                        "contributor-role": "AUTHOR",
-                                        "contributor-sequence": null
-                                    },
-                                    "contributor-email": null,
-                                    "contributor-orcid": null,
-                                    "credit-name": {
-                                        "value": "Murray, Stephen S.",
-                                        "visibility": "PUBLIC"
-                                    }
+                                "year": {
+                                    "value": "2016"
                                 }
-                            ]
-                        },
-                        "work-external-identifiers": {
-                            "scope": null,
-                            "work-external-identifier": [
-                                {
-                                    "work-external-identifier-id": {
-                                        "value": "2015AAS...22533655A"
-                                    },
-                                    "work-external-identifier-type": "BIBCODE"
+                            },
+                            "put-code": 27449390,
+                            "source": {
+                                "source-client-id": {
+                                    "host": "orcid.org",
+                                    "path": "APP-BA5POB6F5D7CTHX2",
+                                    "uri": "http://orcid.org/client/APP-BA5POB6F5D7CTHX2"
                                 },
-                                {
-                                    "work-external-identifier-id": {
-                                        "value": "10690688"
-                                    },
-                                    "work-external-identifier-type": "OTHER_ID"
-                                }
-                            ]
-                        },
-                        "work-source": null,
-                        "work-title": {
-                            "subtitle": null,
+                                "source-name": {
+                                    "value": "NASA Astrophysics Data System"
+                                },
+                                "source-orcid": null
+                            },
                             "title": {
-                                "value": "Improved Functionality and Curation Support in the ADS"
+                                "subtitle": null,
+                                "title": {
+                                    "value": "Aggregation and Linking of Observational Metadata in the ADS"
+                                },
+                                "translated-title": null
                             },
-                            "translated-title": null
-                        },
-                        "work-type": "JOURNAL_ARTICLE"
+                            "type": "JOURNAL_ARTICLE",
+                            "visibility": "PUBLIC"
+                        }
+                    ]
+                },
+                {
+                    "external-ids": {
+                        "external-id": [
+                            {
+                                "external-id-relationship": "SELF",
+                                "external-id-type": "other-id",
+                                "external-id-url": null,
+                                "external-id-value": "11057812"
+                            },
+                            {
+                                "external-id-relationship": "SELF",
+                                "external-id-type": "bibcode",
+                                "external-id-url": null,
+                                "external-id-value": "2015IAUGA..2257768A"
+                            }
+                        ]
                     },
-                    {
-                        "country": null,
-                        "created-date": {
-                            "value": 1430425387270
-                        },
-                        "journal-title": null,
-                        "language-code": null,
-                        "last-modified-date": {
-                            "value": 1442401141721
-                        },
-                        "publication-date": null,
-                        "put-code": "16320243",
-                        "short-description": "For many years, users have wanted to search affiliations in the ADS in order to build institutional databases and to help with author disambiguation. Although we currently provide this capability upon request, we have yet to incorporate it as part of the operational Abstract Service. This is because it cannot be used reliably, primarily because of the lack of uniform representation of the affiliation data. In an effort to make affiliation searches more meaningful, we have designed a two-tiered hierarchy of standard institutional names based on Ringgold identifiers, with the expectation that this will enable us to implement a search by institution, which will work for the vast majority of institutions. It is our intention to provide the capability of searching the ADS both by standard affiliation name and original affiliation string, as well as to enable autosuggest of affiliations as a means of helping to disambiguate author identification. Some institutions are likely to require manual work, and we encourage interested librarians to assist us in standardizing the representation of their institutions in the affiliation field.",
-                        "source": {
-                            "source-client-id": {
-                                "host": "orcid.org",
-                                "path": "APP-BA5POB6F5D7CTHX2",
-                                "uri": "http://orcid.org/client/APP-BA5POB6F5D7CTHX2",
-                                "value": null
+                    "last-modified-date": {
+                        "value": 1451882395457
+                    },
+                    "work-summary": [
+                        {
+                            "created-date": {
+                                "value": 1446830582917
                             },
-                            "source-date": {
-                                "value": 1430425387270
+                            "display-index": "0",
+                            "external-ids": {
+                                "external-id": [
+                                    {
+                                        "external-id-relationship": "SELF",
+                                        "external-id-type": "bibcode",
+                                        "external-id-url": null,
+                                        "external-id-value": "2015IAUGA..2257768A"
+                                    },
+                                    {
+                                        "external-id-relationship": "SELF",
+                                        "external-id-type": "other-id",
+                                        "external-id-url": null,
+                                        "external-id-value": "11057812"
+                                    }
+                                ]
                             },
-                            "source-name": {
-                                "value": "NASA ADS"
+                            "last-modified-date": {
+                                "value": 1451882395457
                             },
-                            "source-orcid": null
-                        },
-                        "url": {
-                            "value": "https://ui.adsabs.harvard.edu/#abs/2015ASPC..492..208G"
-                        },
-                        "visibility": "PUBLIC",
-                        "work-citation": null,
-                        "work-contributors": {
-                            "contributor": [
-                                {
-                                    "contributor-attributes": {
-                                        "contributor-role": "AUTHOR",
-                                        "contributor-sequence": null
-                                    },
-                                    "contributor-email": null,
-                                    "contributor-orcid": null,
-                                    "credit-name": {
-                                        "value": "Grant, C. S.",
-                                        "visibility": "PUBLIC"
-                                    }
+                            "path": "/0000-0003-3041-2092/work/20054210",
+                            "publication-date": {
+                                "day": null,
+                                "media-type": null,
+                                "month": {
+                                    "value": "08"
                                 },
-                                {
-                                    "contributor-attributes": {
-                                        "contributor-role": "AUTHOR",
-                                        "contributor-sequence": null
-                                    },
-                                    "contributor-email": null,
-                                    "contributor-orcid": null,
-                                    "credit-name": {
-                                        "value": "Thompson, D. M.",
-                                        "visibility": "PUBLIC"
-                                    }
-                                },
-                                {
-                                    "contributor-attributes": {
-                                        "contributor-role": "AUTHOR",
-                                        "contributor-sequence": null
-                                    },
-                                    "contributor-email": null,
-                                    "contributor-orcid": null,
-                                    "credit-name": {
-                                        "value": "Chyla, R.",
-                                        "visibility": "PUBLIC"
-                                    }
-                                },
-                                {
-                                    "contributor-attributes": {
-                                        "contributor-role": "AUTHOR",
-                                        "contributor-sequence": null
-                                    },
-                                    "contributor-email": null,
-                                    "contributor-orcid": null,
-                                    "credit-name": {
-                                        "value": "Holachek, A.",
-                                        "visibility": "PUBLIC"
-                                    }
-                                },
-                                {
-                                    "contributor-attributes": {
-                                        "contributor-role": "AUTHOR",
-                                        "contributor-sequence": null
-                                    },
-                                    "contributor-email": null,
-                                    "contributor-orcid": null,
-                                    "credit-name": {
-                                        "value": "Accomazzi, A.",
-                                        "visibility": "PUBLIC"
-                                    }
-                                },
-                                {
-                                    "contributor-attributes": {
-                                        "contributor-role": "AUTHOR",
-                                        "contributor-sequence": null
-                                    },
-                                    "contributor-email": null,
-                                    "contributor-orcid": null,
-                                    "credit-name": {
-                                        "value": "Henneken, E. A.",
-                                        "visibility": "PUBLIC"
-                                    }
-                                },
-                                {
-                                    "contributor-attributes": {
-                                        "contributor-role": "AUTHOR",
-                                        "contributor-sequence": null
-                                    },
-                                    "contributor-email": null,
-                                    "contributor-orcid": null,
-                                    "credit-name": {
-                                        "value": "Kurtz, M. J.",
-                                        "visibility": "PUBLIC"
-                                    }
-                                },
-                                {
-                                    "contributor-attributes": {
-                                        "contributor-role": "AUTHOR",
-                                        "contributor-sequence": null
-                                    },
-                                    "contributor-email": null,
-                                    "contributor-orcid": null,
-                                    "credit-name": {
-                                        "value": "Luker, J.",
-                                        "visibility": "PUBLIC"
-                                    }
-                                },
-                                {
-                                    "contributor-attributes": {
-                                        "contributor-role": "AUTHOR",
-                                        "contributor-sequence": null
-                                    },
-                                    "contributor-email": null,
-                                    "contributor-orcid": null,
-                                    "credit-name": {
-                                        "value": "Murray, S. S.",
-                                        "visibility": "PUBLIC"
-                                    }
+                                "year": {
+                                    "value": "2015"
                                 }
-                            ]
-                        },
-                        "work-external-identifiers": {
-                            "scope": null,
-                            "work-external-identifier": [
-                                {
-                                    "work-external-identifier-id": {
-                                        "value": "2015ASPC..492..208G"
-                                    },
-                                    "work-external-identifier-type": "BIBCODE"
+                            },
+                            "put-code": 20054210,
+                            "source": {
+                                "source-client-id": {
+                                    "host": "orcid.org",
+                                    "path": "APP-BA5POB6F5D7CTHX2",
+                                    "uri": "http://orcid.org/client/APP-BA5POB6F5D7CTHX2"
                                 },
-                                {
-                                    "work-external-identifier-id": {
-                                        "value": "10867252"
-                                    },
-                                    "work-external-identifier-type": "OTHER_ID"
-                                }
-                            ]
-                        },
-                        "work-source": null,
-                        "work-title": {
-                            "subtitle": null,
+                                "source-name": {
+                                    "value": "NASA Astrophysics Data System"
+                                },
+                                "source-orcid": null
+                            },
                             "title": {
-                                "value": "Enabling Meaningful Affiliation Searches in the ADS"
+                                "subtitle": null,
+                                "title": {
+                                    "value": "The NASA Astrophysics Data System joins the Revolution"
+                                },
+                                "translated-title": null
                             },
-                            "translated-title": null
-                        },
-                        "work-type": "JOURNAL_ARTICLE"
+                            "type": "JOURNAL_ARTICLE",
+                            "visibility": "PUBLIC"
+                        }
+                    ]
+                },
+                {
+                    "external-ids": {
+                        "external-id": [
+                            {
+                                "external-id-relationship": "SELF",
+                                "external-id-type": "bibcode",
+                                "external-id-url": null,
+                                "external-id-value": "2015arXiv150305881C"
+                            },
+                            {
+                                "external-id-relationship": "SELF",
+                                "external-id-type": "other-id",
+                                "external-id-url": null,
+                                "external-id-value": "10821189"
+                            }
+                        ]
                     },
-                    {
-                        "country": null,
-                        "created-date": {
-                            "value": 1426801896475
-                        },
-                        "journal-title": null,
-                        "language-code": null,
-                        "last-modified-date": {
-                            "value": 1442401141721
-                        },
-                        "publication-date": null,
-                        "put-code": "15824079",
-                        "short-description": "Finding measures for research impact, be it for individuals, institutions, instruments or projects, has gained a lot of popularity. More papers than ever are being written on new impact measures, and problems with existing measures are being pointed out on a regular basis. Funding agencies require impact statistics in their reports, job candidates incorporate them in their resumes, and publication metrics have even been used in at least one recent court case. To support this need for research impact indicators, the SAO/NASA Astrophysics Data System (ADS) has developed a service which provides a broad overview of various impact measures. In this presentation we discuss how the ADS can be used to quench the thirst for impact measures. We will also discuss a couple of the lesser known indicators in the metrics overview and the main issues to be aware of when compiling publication-based metrics in the ADS, namely author name ambiguity and citation incompleteness.",
-                        "source": {
-                            "source-client-id": {
-                                "host": "orcid.org",
-                                "path": "APP-BA5POB6F5D7CTHX2",
-                                "uri": "http://orcid.org/client/APP-BA5POB6F5D7CTHX2",
-                                "value": null
+                    "last-modified-date": {
+                        "value": 1451882395457
+                    },
+                    "work-summary": [
+                        {
+                            "created-date": {
+                                "value": 1451882395453
                             },
-                            "source-date": {
-                                "value": 1426801896475
+                            "display-index": "0",
+                            "external-ids": {
+                                "external-id": [
+                                    {
+                                        "external-id-relationship": "SELF",
+                                        "external-id-type": "bibcode",
+                                        "external-id-url": null,
+                                        "external-id-value": "2015arXiv150305881C"
+                                    }
+                                ]
                             },
-                            "source-name": {
-                                "value": "NASA ADS"
+                            "last-modified-date": {
+                                "value": 1451882395453
                             },
-                            "source-orcid": null
-                        },
-                        "url": {
-                            "value": "http://adsabs.harvard.edu/cgi-bin/nph-data_query?bibcode=2014arXiv1406.4542H&link_type=ARTICLE"
-                        },
-                        "visibility": "PUBLIC",
-                        "work-citation": null,
-                        "work-contributors": {
-                            "contributor": [
-                                {
-                                    "contributor-attributes": {
-                                        "contributor-role": "AUTHOR",
-                                        "contributor-sequence": null
-                                    },
-                                    "contributor-email": null,
-                                    "contributor-orcid": null,
-                                    "credit-name": {
-                                        "value": "Henneken, Edwin A.",
-                                        "visibility": "PUBLIC"
-                                    }
+                            "path": "/0000-0003-3041-2092/work/21158178",
+                            "publication-date": null,
+                            "put-code": 21158178,
+                            "source": {
+                                "source-client-id": {
+                                    "host": "orcid.org",
+                                    "path": "APP-BA5POB6F5D7CTHX2",
+                                    "uri": "http://orcid.org/client/APP-BA5POB6F5D7CTHX2"
                                 },
-                                {
-                                    "contributor-attributes": {
-                                        "contributor-role": "AUTHOR",
-                                        "contributor-sequence": null
-                                    },
-                                    "contributor-email": null,
-                                    "contributor-orcid": null,
-                                    "credit-name": {
-                                        "value": "Accomazzi, Alberto",
-                                        "visibility": "PUBLIC"
-                                    }
+                                "source-name": {
+                                    "value": "NASA Astrophysics Data System"
                                 },
-                                {
-                                    "contributor-attributes": {
-                                        "contributor-role": "AUTHOR",
-                                        "contributor-sequence": null
-                                    },
-                                    "contributor-email": null,
-                                    "contributor-orcid": null,
-                                    "credit-name": {
-                                        "value": "Kurtz, Michael J.",
-                                        "visibility": "PUBLIC"
-                                    }
-                                },
-                                {
-                                    "contributor-attributes": {
-                                        "contributor-role": "AUTHOR",
-                                        "contributor-sequence": null
-                                    },
-                                    "contributor-email": null,
-                                    "contributor-orcid": null,
-                                    "credit-name": {
-                                        "value": "Grant, Carolyn S.",
-                                        "visibility": "PUBLIC"
-                                    }
-                                },
-                                {
-                                    "contributor-attributes": {
-                                        "contributor-role": "AUTHOR",
-                                        "contributor-sequence": null
-                                    },
-                                    "contributor-email": null,
-                                    "contributor-orcid": null,
-                                    "credit-name": {
-                                        "value": "Thompson, Donna",
-                                        "visibility": "PUBLIC"
-                                    }
-                                },
-                                {
-                                    "contributor-attributes": {
-                                        "contributor-role": "AUTHOR",
-                                        "contributor-sequence": null
-                                    },
-                                    "contributor-email": null,
-                                    "contributor-orcid": null,
-                                    "credit-name": {
-                                        "value": "Luker, Jay",
-                                        "visibility": "PUBLIC"
-                                    }
-                                },
-                                {
-                                    "contributor-attributes": {
-                                        "contributor-role": "AUTHOR",
-                                        "contributor-sequence": null
-                                    },
-                                    "contributor-email": null,
-                                    "contributor-orcid": null,
-                                    "credit-name": {
-                                        "value": "Chyla, Roman",
-                                        "visibility": "PUBLIC"
-                                    }
-                                },
-                                {
-                                    "contributor-attributes": {
-                                        "contributor-role": "AUTHOR",
-                                        "contributor-sequence": null
-                                    },
-                                    "contributor-email": null,
-                                    "contributor-orcid": null,
-                                    "credit-name": {
-                                        "value": "Holachek, Alexandra",
-                                        "visibility": "PUBLIC"
-                                    }
-                                },
-                                {
-                                    "contributor-attributes": {
-                                        "contributor-role": "AUTHOR",
-                                        "contributor-sequence": null
-                                    },
-                                    "contributor-email": null,
-                                    "contributor-orcid": null,
-                                    "credit-name": {
-                                        "value": "Murray, Stephen S.",
-                                        "visibility": "PUBLIC"
-                                    }
-                                }
-                            ]
-                        },
-                        "work-external-identifiers": {
-                            "scope": null,
-                            "work-external-identifier": [
-                                {
-                                    "work-external-identifier-id": {
-                                        "value": "2014arXiv1406.4542H"
-                                    },
-                                    "work-external-identifier-type": "BIBCODE"
-                                },
-                                {
-                                    "work-external-identifier-id": {
-                                        "value": "10564749"
-                                    },
-                                    "work-external-identifier-type": "OTHER_ID"
-                                }
-                            ]
-                        },
-                        "work-source": null,
-                        "work-title": {
-                            "subtitle": null,
+                                "source-orcid": null
+                            },
                             "title": {
-                                "value": "Computing and Using Metrics in the ADS"
+                                "subtitle": null,
+                                "title": {
+                                    "value": "ADS 2.0: new architecture, API and services"
+                                },
+                                "translated-title": null
                             },
-                            "translated-title": null
+                            "type": "JOURNAL_ARTICLE",
+                            "visibility": "PUBLIC"
                         },
-                        "work-type": "JOURNAL_ARTICLE"
-                    },
-                    {
-                        "country": null,
-                        "created-date": {
-                            "value": 1426801856336
-                        },
-                        "journal-title": null,
-                        "language-code": null,
-                        "last-modified-date": {
-                            "value": 1442401141721
-                        },
-                        "publication-date": null,
-                        "put-code": "15824077",
-                        "short-description": "Four years after the last LISA meeting, the NASA Astrophysics Data System (ADS) finds itself in the middle of major changes to the infrastructure and contents of its database. In this paper we highlight a number of features of great importance to librarians and discuss the additional functionality that we are currently developing. Starting in 2011, the ADS started to systematically collect, parse and index full-text documents for all the major publications in Physics and Astronomy as well as many smaller Astronomy journals and arXiv e-prints, for a total of over 3.5 million papers. Our citation coverage has doubled since 2010 and now consists of over 70 million citations. We are normalizing the affiliation information in our records and, in collaboration with the CfA library and NASA, we have started collecting and linking funding sources with papers in our system. At the same time, we are undergoing major technology changes in the ADS platform which affect all aspects of the system and its operations. We have rolled out and are now enhancing a new high-performance search engine capable of performing full-text as well as metadata searches using an intuitive query language which supports fielded, unfielded and functional searches. We are currently able to index acknowledgments, affiliations, citations, funding sources, and to the extent that these metadata are available to us they are now searchable under our new platform. The ADS private library system is being enhanced to support reading groups, collaborative editing of lists of papers, tagging, and a variety of privacy settings when managing one's paper collection. While this effort is still ongoing, some of its benefits are already available through the ADS Labs user interface and API at http://adslabs.org/adsabs/",
-                        "source": {
-                            "source-client-id": {
-                                "host": "orcid.org",
-                                "path": "APP-BA5POB6F5D7CTHX2",
-                                "uri": "http://orcid.org/client/APP-BA5POB6F5D7CTHX2",
-                                "value": null
-                            },
-                            "source-date": {
-                                "value": 1426801856336
-                            },
-                            "source-name": {
-                                "value": "NASA ADS"
-                            },
-                            "source-orcid": null
-                        },
-                        "url": {
-                            "value": "http://adsabs.harvard.edu/cgi-bin/nph-data_query?bibcode=2015arXiv150304194A&link_type=ARTICLE"
-                        },
-                        "visibility": "PUBLIC",
-                        "work-citation": null,
-                        "work-contributors": {
-                            "contributor": [
-                                {
-                                    "contributor-attributes": {
-                                        "contributor-role": "AUTHOR",
-                                        "contributor-sequence": null
-                                    },
-                                    "contributor-email": null,
-                                    "contributor-orcid": null,
-                                    "credit-name": {
-                                        "value": "Accomazzi, Alberto",
-                                        "visibility": "PUBLIC"
-                                    }
-                                },
-                                {
-                                    "contributor-attributes": {
-                                        "contributor-role": "AUTHOR",
-                                        "contributor-sequence": null
-                                    },
-                                    "contributor-email": null,
-                                    "contributor-orcid": null,
-                                    "credit-name": {
-                                        "value": "Kurtz, Michael J.",
-                                        "visibility": "PUBLIC"
-                                    }
-                                },
-                                {
-                                    "contributor-attributes": {
-                                        "contributor-role": "AUTHOR",
-                                        "contributor-sequence": null
-                                    },
-                                    "contributor-email": null,
-                                    "contributor-orcid": null,
-                                    "credit-name": {
-                                        "value": "Henneken, Edwin A.",
-                                        "visibility": "PUBLIC"
-                                    }
-                                },
-                                {
-                                    "contributor-attributes": {
-                                        "contributor-role": "AUTHOR",
-                                        "contributor-sequence": null
-                                    },
-                                    "contributor-email": null,
-                                    "contributor-orcid": null,
-                                    "credit-name": {
-                                        "value": "Chyla, Roman",
-                                        "visibility": "PUBLIC"
-                                    }
-                                },
-                                {
-                                    "contributor-attributes": {
-                                        "contributor-role": "AUTHOR",
-                                        "contributor-sequence": null
-                                    },
-                                    "contributor-email": null,
-                                    "contributor-orcid": null,
-                                    "credit-name": {
-                                        "value": "Luker, James",
-                                        "visibility": "PUBLIC"
-                                    }
-                                },
-                                {
-                                    "contributor-attributes": {
-                                        "contributor-role": "AUTHOR",
-                                        "contributor-sequence": null
-                                    },
-                                    "contributor-email": null,
-                                    "contributor-orcid": null,
-                                    "credit-name": {
-                                        "value": "Grant, Carolyn S.",
-                                        "visibility": "PUBLIC"
-                                    }
-                                },
-                                {
-                                    "contributor-attributes": {
-                                        "contributor-role": "AUTHOR",
-                                        "contributor-sequence": null
-                                    },
-                                    "contributor-email": null,
-                                    "contributor-orcid": null,
-                                    "credit-name": {
-                                        "value": "Thompson, Donna M.",
-                                        "visibility": "PUBLIC"
-                                    }
-                                },
-                                {
-                                    "contributor-attributes": {
-                                        "contributor-role": "AUTHOR",
-                                        "contributor-sequence": null
-                                    },
-                                    "contributor-email": null,
-                                    "contributor-orcid": null,
-                                    "credit-name": {
-                                        "value": "Holachek, Alexandra",
-                                        "visibility": "PUBLIC"
-                                    }
-                                },
-                                {
-                                    "contributor-attributes": {
-                                        "contributor-role": "AUTHOR",
-                                        "contributor-sequence": null
-                                    },
-                                    "contributor-email": null,
-                                    "contributor-orcid": null,
-                                    "credit-name": {
-                                        "value": "Dave, Rahul",
-                                        "visibility": "PUBLIC"
-                                    }
-                                },
-                                {
-                                    "contributor-attributes": {
-                                        "contributor-role": "AUTHOR",
-                                        "contributor-sequence": null
-                                    },
-                                    "contributor-email": null,
-                                    "contributor-orcid": null,
-                                    "credit-name": {
-                                        "value": "Murray, Stephen S.",
-                                        "visibility": "PUBLIC"
-                                    }
-                                }
-                            ]
-                        },
-                        "work-external-identifiers": {
-                            "scope": null,
-                            "work-external-identifier": [
-                                {
-                                    "work-external-identifier-id": {
-                                        "value": "2015arXiv150304194A"
-                                    },
-                                    "work-external-identifier-type": "BIBCODE"
-                                },
-                                {
-                                    "work-external-identifier-id": {
-                                        "value": "10796089"
-                                    },
-                                    "work-external-identifier-type": "OTHER_ID"
-                                }
-                            ]
-                        },
-                        "work-source": null,
-                        "work-title": {
-                            "subtitle": null,
-                            "title": {
-                                "value": "ADS: The Next Generation Search Platform"
-                            },
-                            "translated-title": null
-                        },
-                        "work-type": "JOURNAL_ARTICLE"
-                    },
-                    {
-                        "country": null,
-                        "created-date": {
-                            "value": 1430778219015
-                        },
-                        "journal-title": null,
-                        "language-code": null,
-                        "last-modified-date": {
-                            "value": 1442401141721
-                        },
-                        "publication-date": null,
-                        "put-code": "16363214",
-                        "short-description": "The ADS platform is undergoing the biggest rewrite of its 20-year history. While several components have been added to its architecture over the past couple of years, this talk will concentrate on the underpinnings of ADS's search layer and its API. To illustrate the design of the components in the new system, we will show how the new ADS user interface is built exclusively on top of the API using RESTful web services. Taking one step further, we will discuss how we plan to expose the treasure trove of information hosted by ADS (10 million records and fulltext for much of the Astronomy and Physics refereed literature) to partners interested in using this API. This will provide you (and your intelligent applications) with access to ADS's underlying data to enable the extraction of new knowledge and the ingestion of these results back into the ADS. Using this framework, researchers could run controlled experiments with content extraction, machine learning, natural language processing, etc. In this talk, we will discuss what is already implemented, what will be available soon, and where we are going next.",
-                        "source": {
-                            "source-client-id": {
-                                "host": "orcid.org",
-                                "path": "APP-BA5POB6F5D7CTHX2",
-                                "uri": "http://orcid.org/client/APP-BA5POB6F5D7CTHX2",
-                                "value": null
-                            },
-                            "source-date": {
-                                "value": 1430778219015
-                            },
-                            "source-name": {
-                                "value": "NASA ADS"
-                            },
-                            "source-orcid": null
-                        },
-                        "url": {
-                            "value": "https://ui.adsabs.harvard.edu/#abs/2015arXiv150305881C"
-                        },
-                        "visibility": "PUBLIC",
-                        "work-citation": null,
-                        "work-contributors": {
-                            "contributor": null
-                        },
-                        "work-external-identifiers": {
-                            "scope": null,
-                            "work-external-identifier": [
-                                {
-                                    "work-external-identifier-id": {
-                                        "value": "2015arXiv150305881C"
-                                    },
-                                    "work-external-identifier-type": "BIBCODE"
-                                }
-                            ]
-                        },
-                        "work-source": null,
-                        "work-title": {
-                            "subtitle": null,
-                            "title": {
-                                "value": "ADS 2.0: new architecture, API and services"
-                            },
-                            "translated-title": null
-                        },
-                        "work-type": "JOURNAL_ARTICLE"
-                    },
-                    {
-                        "country": null,
-                        "created-date": {
-                            "value": 1430778133277
-                        },
-                        "journal-title": null,
-                        "language-code": null,
-                        "last-modified-date": {
-                            "value": 1442401141721
-                        },
-                        "publication-date": null,
-                        "put-code": "16363211",
-                        "short-description": "The ADS platform is undergoing the biggest rewrite of its 20-year history. While several components have been added to its architecture over the past couple of years, this talk will concentrate on the underpinnings of ADS's search layer and its API. To illustrate the design of the components in the new system, we will show how the new ADS user interface is built exclusively on top of the API using RESTful web services. Taking one step further, we will discuss how we plan to expose the treasure trove of information hosted by ADS (10 million records and fulltext for much of the Astronomy and Physics refereed literature) to partners interested in using this API. This will provide you (and your intelligent applications) with access to ADS's underlying data to enable the extraction of new knowledge and the ingestion of these results back into the ADS. Using this framework, researchers could run controlled experiments with content extraction, machine learning, natural language processing, etc. In this talk, we will discuss what is already implemented, what will be available soon, and where we are going next.",
-                        "source": {
-                            "source-client-id": null,
-                            "source-date": {
+                        {
+                            "created-date": {
                                 "value": 1430778133277
                             },
-                            "source-name": {
-                                "value": "Roman Chyla"
-                            },
-                            "source-orcid": {
-                                "host": "orcid.org",
-                                "path": "0000-0003-3041-2092",
-                                "uri": "http://orcid.org/0000-0003-3041-2092",
-                                "value": null
-                            }
-                        },
-                        "url": {
-                            "value": "https://ui.adsabs.harvard.edu/#abs/2015arXiv150305881C"
-                        },
-                        "visibility": "PUBLIC",
-                        "work-citation": null,
-                        "work-contributors": null,
-                        "work-external-identifiers": {
-                            "scope": null,
-                            "work-external-identifier": [
-                                {
-                                    "work-external-identifier-id": {
-                                        "value": "2015arXiv150305881C"
+                            "display-index": "0",
+                            "external-ids": {
+                                "external-id": [
+                                    {
+                                        "external-id-relationship": "SELF",
+                                        "external-id-type": "bibcode",
+                                        "external-id-url": null,
+                                        "external-id-value": "2015arXiv150305881C"
                                     },
-                                    "work-external-identifier-type": "BIBCODE"
+                                    {
+                                        "external-id-relationship": "SELF",
+                                        "external-id-type": "other-id",
+                                        "external-id-url": null,
+                                        "external-id-value": "10821189"
+                                    }
+                                ]
+                            },
+                            "last-modified-date": {
+                                "value": 1451882395457
+                            },
+                            "path": "/0000-0003-3041-2092/work/16363211",
+                            "publication-date": null,
+                            "put-code": 16363211,
+                            "source": {
+                                "source-client-id": null,
+                                "source-name": {
+                                    "value": "Roman Chyla"
                                 },
-                                {
-                                    "work-external-identifier-id": {
-                                        "value": "10821189"
-                                    },
-                                    "work-external-identifier-type": "OTHER_ID"
+                                "source-orcid": {
+                                    "host": "orcid.org",
+                                    "path": "0000-0003-3041-2092",
+                                    "uri": "http://orcid.org/0000-0003-3041-2092"
                                 }
-                            ]
-                        },
-                        "work-source": null,
-                        "work-title": {
-                            "subtitle": null,
-                            "title": {
-                                "value": "ADS 2.0: new architecture, API and services"
                             },
-                            "translated-title": null
-                        },
-                        "work-type": "JOURNAL_ARTICLE"
-                    }
-                ],
-                "scope": null
-            }
-        },
-        "orcid-bio": {
-            "biography": null,
-            "contact-details": null,
-            "delegation": null,
-            "external-identifiers": null,
-            "keywords": null,
-            "personal-details": {
-                "credit-name": null,
-                "family-name": {
-                    "value": "Chyla"
+                            "title": {
+                                "subtitle": null,
+                                "title": {
+                                    "value": "ADS 2.0: new architecture, API and services"
+                                },
+                                "translated-title": null
+                            },
+                            "type": "JOURNAL_ARTICLE",
+                            "visibility": "PUBLIC"
+                        }
+                    ]
                 },
-                "given-names": {
-                    "value": "Roman"
+                {
+                    "external-ids": {
+                        "external-id": [
+                            {
+                                "external-id-relationship": "SELF",
+                                "external-id-type": "bibcode",
+                                "external-id-url": null,
+                                "external-id-value": "2015arXiv150304194A"
+                            },
+                            {
+                                "external-id-relationship": "SELF",
+                                "external-id-type": "other-id",
+                                "external-id-url": null,
+                                "external-id-value": "10796089"
+                            }
+                        ]
+                    },
+                    "last-modified-date": {
+                        "value": 1451882395457
+                    },
+                    "work-summary": [
+                        {
+                            "created-date": {
+                                "value": 1426801856336
+                            },
+                            "display-index": "0",
+                            "external-ids": {
+                                "external-id": [
+                                    {
+                                        "external-id-relationship": "SELF",
+                                        "external-id-type": "bibcode",
+                                        "external-id-url": null,
+                                        "external-id-value": "2015arXiv150304194A"
+                                    },
+                                    {
+                                        "external-id-relationship": "SELF",
+                                        "external-id-type": "other-id",
+                                        "external-id-url": null,
+                                        "external-id-value": "10796089"
+                                    }
+                                ]
+                            },
+                            "last-modified-date": {
+                                "value": 1451882395457
+                            },
+                            "path": "/0000-0003-3041-2092/work/15824077",
+                            "publication-date": null,
+                            "put-code": 15824077,
+                            "source": {
+                                "source-client-id": {
+                                    "host": "orcid.org",
+                                    "path": "APP-BA5POB6F5D7CTHX2",
+                                    "uri": "http://orcid.org/client/APP-BA5POB6F5D7CTHX2"
+                                },
+                                "source-name": {
+                                    "value": "NASA Astrophysics Data System"
+                                },
+                                "source-orcid": null
+                            },
+                            "title": {
+                                "subtitle": null,
+                                "title": {
+                                    "value": "ADS: The Next Generation Search Platform"
+                                },
+                                "translated-title": null
+                            },
+                            "type": "JOURNAL_ARTICLE",
+                            "visibility": "PUBLIC"
+                        }
+                    ]
                 },
-                "other-names": null
-            },
-            "researcher-urls": null,
-            "scope": null
-        },
-        "orcid-deprecated": null,
-        "orcid-history": {
-            "claimed": {
-                "value": true
-            },
-            "completion-date": null,
-            "creation-method": "DIRECT",
-            "deactivation-date": null,
+                {
+                    "external-ids": {
+                        "external-id": [
+                            {
+                                "external-id-relationship": "SELF",
+                                "external-id-type": "bibcode",
+                                "external-id-url": null,
+                                "external-id-value": "2014arXiv1406.4542H"
+                            },
+                            {
+                                "external-id-relationship": "SELF",
+                                "external-id-type": "other-id",
+                                "external-id-url": null,
+                                "external-id-value": "10564749"
+                            }
+                        ]
+                    },
+                    "last-modified-date": {
+                        "value": 1451882395457
+                    },
+                    "work-summary": [
+                        {
+                            "created-date": {
+                                "value": 1426801896475
+                            },
+                            "display-index": "0",
+                            "external-ids": {
+                                "external-id": [
+                                    {
+                                        "external-id-relationship": "SELF",
+                                        "external-id-type": "bibcode",
+                                        "external-id-url": null,
+                                        "external-id-value": "2014arXiv1406.4542H"
+                                    },
+                                    {
+                                        "external-id-relationship": "SELF",
+                                        "external-id-type": "other-id",
+                                        "external-id-url": null,
+                                        "external-id-value": "10564749"
+                                    }
+                                ]
+                            },
+                            "last-modified-date": {
+                                "value": 1451882395457
+                            },
+                            "path": "/0000-0003-3041-2092/work/15824079",
+                            "publication-date": null,
+                            "put-code": 15824079,
+                            "source": {
+                                "source-client-id": {
+                                    "host": "orcid.org",
+                                    "path": "APP-BA5POB6F5D7CTHX2",
+                                    "uri": "http://orcid.org/client/APP-BA5POB6F5D7CTHX2"
+                                },
+                                "source-name": {
+                                    "value": "NASA Astrophysics Data System"
+                                },
+                                "source-orcid": null
+                            },
+                            "title": {
+                                "subtitle": null,
+                                "title": {
+                                    "value": "Computing and Using Metrics in the ADS"
+                                },
+                                "translated-title": null
+                            },
+                            "type": "JOURNAL_ARTICLE",
+                            "visibility": "PUBLIC"
+                        }
+                    ]
+                },
+                {
+                    "external-ids": {
+                        "external-id": [
+                            {
+                                "external-id-relationship": "SELF",
+                                "external-id-type": "other-id",
+                                "external-id-url": null,
+                                "external-id-value": "10867252"
+                            },
+                            {
+                                "external-id-relationship": "SELF",
+                                "external-id-type": "bibcode",
+                                "external-id-url": null,
+                                "external-id-value": "2015ASPC..492..208G"
+                            }
+                        ]
+                    },
+                    "last-modified-date": {
+                        "value": 1451882395457
+                    },
+                    "work-summary": [
+                        {
+                            "created-date": {
+                                "value": 1430425387270
+                            },
+                            "display-index": "0",
+                            "external-ids": {
+                                "external-id": [
+                                    {
+                                        "external-id-relationship": "SELF",
+                                        "external-id-type": "bibcode",
+                                        "external-id-url": null,
+                                        "external-id-value": "2015ASPC..492..208G"
+                                    },
+                                    {
+                                        "external-id-relationship": "SELF",
+                                        "external-id-type": "other-id",
+                                        "external-id-url": null,
+                                        "external-id-value": "10867252"
+                                    }
+                                ]
+                            },
+                            "last-modified-date": {
+                                "value": 1451882395457
+                            },
+                            "path": "/0000-0003-3041-2092/work/16320243",
+                            "publication-date": null,
+                            "put-code": 16320243,
+                            "source": {
+                                "source-client-id": {
+                                    "host": "orcid.org",
+                                    "path": "APP-BA5POB6F5D7CTHX2",
+                                    "uri": "http://orcid.org/client/APP-BA5POB6F5D7CTHX2"
+                                },
+                                "source-name": {
+                                    "value": "NASA Astrophysics Data System"
+                                },
+                                "source-orcid": null
+                            },
+                            "title": {
+                                "subtitle": null,
+                                "title": {
+                                    "value": "Enabling Meaningful Affiliation Searches in the ADS"
+                                },
+                                "translated-title": null
+                            },
+                            "type": "JOURNAL_ARTICLE",
+                            "visibility": "PUBLIC"
+                        }
+                    ]
+                },
+                {
+                    "external-ids": {
+                        "external-id": [
+                            {
+                                "external-id-relationship": "SELF",
+                                "external-id-type": "other-id",
+                                "external-id-url": null,
+                                "external-id-value": "10690688"
+                            },
+                            {
+                                "external-id-relationship": "SELF",
+                                "external-id-type": "bibcode",
+                                "external-id-url": null,
+                                "external-id-value": "2015AAS...22533655A"
+                            }
+                        ]
+                    },
+                    "last-modified-date": {
+                        "value": 1451882395457
+                    },
+                    "work-summary": [
+                        {
+                            "created-date": {
+                                "value": 1426801891567
+                            },
+                            "display-index": "0",
+                            "external-ids": {
+                                "external-id": [
+                                    {
+                                        "external-id-relationship": "SELF",
+                                        "external-id-type": "bibcode",
+                                        "external-id-url": null,
+                                        "external-id-value": "2015AAS...22533655A"
+                                    },
+                                    {
+                                        "external-id-relationship": "SELF",
+                                        "external-id-type": "other-id",
+                                        "external-id-url": null,
+                                        "external-id-value": "10690688"
+                                    }
+                                ]
+                            },
+                            "last-modified-date": {
+                                "value": 1451882395457
+                            },
+                            "path": "/0000-0003-3041-2092/work/15824078",
+                            "publication-date": null,
+                            "put-code": 15824078,
+                            "source": {
+                                "source-client-id": {
+                                    "host": "orcid.org",
+                                    "path": "APP-BA5POB6F5D7CTHX2",
+                                    "uri": "http://orcid.org/client/APP-BA5POB6F5D7CTHX2"
+                                },
+                                "source-name": {
+                                    "value": "NASA Astrophysics Data System"
+                                },
+                                "source-orcid": null
+                            },
+                            "title": {
+                                "subtitle": null,
+                                "title": {
+                                    "value": "Improved Functionality and Curation Support in the ADS"
+                                },
+                                "translated-title": null
+                            },
+                            "type": "JOURNAL_ARTICLE",
+                            "visibility": "PUBLIC"
+                        }
+                    ]
+                },
+                {
+                    "external-ids": {
+                        "external-id": [
+                            {
+                                "external-id-relationship": "SELF",
+                                "external-id-type": "bibcode",
+                                "external-id-url": null,
+                                "external-id-value": "2014AAS...22325503A"
+                            }
+                        ]
+                    },
+                    "last-modified-date": {
+                        "value": 1451882395457
+                    },
+                    "work-summary": [
+                        {
+                            "created-date": {
+                                "value": 1428347859246
+                            },
+                            "display-index": "0",
+                            "external-ids": {
+                                "external-id": [
+                                    {
+                                        "external-id-relationship": "SELF",
+                                        "external-id-type": "bibcode",
+                                        "external-id-url": null,
+                                        "external-id-value": "2014AAS...22325503A"
+                                    }
+                                ]
+                            },
+                            "last-modified-date": {
+                                "value": 1451882395457
+                            },
+                            "path": "/0000-0003-3041-2092/work/16027353",
+                            "publication-date": null,
+                            "put-code": 16027353,
+                            "source": {
+                                "source-client-id": {
+                                    "host": "orcid.org",
+                                    "path": "APP-BA5POB6F5D7CTHX2",
+                                    "uri": "http://orcid.org/client/APP-BA5POB6F5D7CTHX2"
+                                },
+                                "source-name": {
+                                    "value": "NASA Astrophysics Data System"
+                                },
+                                "source-orcid": null
+                            },
+                            "title": {
+                                "subtitle": null,
+                                "title": {
+                                    "value": "Introducing ADS 2.0"
+                                },
+                                "translated-title": null
+                            },
+                            "type": "JOURNAL_ARTICLE",
+                            "visibility": "PUBLIC"
+                        }
+                    ]
+                },
+                {
+                    "external-ids": {
+                        "external-id": [
+                            {
+                                "external-id-relationship": "SELF",
+                                "external-id-type": "bibcode",
+                                "external-id-url": null,
+                                "external-id-value": "2015ASPC..492..150T"
+                            },
+                            {
+                                "external-id-relationship": "SELF",
+                                "external-id-type": "other-id",
+                                "external-id-url": null,
+                                "external-id-value": "10867277"
+                            }
+                        ]
+                    },
+                    "last-modified-date": {
+                        "value": 1451882395457
+                    },
+                    "work-summary": [
+                        {
+                            "created-date": {
+                                "value": 1430425388815
+                            },
+                            "display-index": "0",
+                            "external-ids": {
+                                "external-id": [
+                                    {
+                                        "external-id-relationship": "SELF",
+                                        "external-id-type": "bibcode",
+                                        "external-id-url": null,
+                                        "external-id-value": "2015ASPC..492..150T"
+                                    },
+                                    {
+                                        "external-id-relationship": "SELF",
+                                        "external-id-type": "other-id",
+                                        "external-id-url": null,
+                                        "external-id-value": "10867277"
+                                    }
+                                ]
+                            },
+                            "last-modified-date": {
+                                "value": 1451882395457
+                            },
+                            "path": "/0000-0003-3041-2092/work/16320244",
+                            "publication-date": null,
+                            "put-code": 16320244,
+                            "source": {
+                                "source-client-id": {
+                                    "host": "orcid.org",
+                                    "path": "APP-BA5POB6F5D7CTHX2",
+                                    "uri": "http://orcid.org/client/APP-BA5POB6F5D7CTHX2"
+                                },
+                                "source-name": {
+                                    "value": "NASA Astrophysics Data System"
+                                },
+                                "source-orcid": null
+                            },
+                            "title": {
+                                "subtitle": null,
+                                "title": {
+                                    "value": "Saving the Orphaned Astronomical Literature"
+                                },
+                                "translated-title": null
+                            },
+                            "type": "JOURNAL_ARTICLE",
+                            "visibility": "PUBLIC"
+                        }
+                    ]
+                }
+            ],
             "last-modified-date": {
-                "value": 1446741453381
+                "value": 1476747559382
             },
-            "source": null,
-            "submission-date": {
-                "value": 1426790182821
-            },
-            "verified-email": {
-                "value": true
-            },
-            "verified-primary-email": {
-                "value": true
-            },
-            "visibility": null
-        },
-        "orcid-id": null,
-        "orcid-identifier": {
-            "host": "orcid.org",
-            "path": "0000-0003-3041-2092",
-            "uri": "http://orcid.org/0000-0003-3041-2092",
-            "value": null
-        },
-        "orcid-internal": null,
-        "orcid-preferences": {
-            "locale": "EN"
-        },
-        "type": "USER"
+            "path": "/0000-0003-3041-2092/works"
+        }
     },
-    "orcid-search-results": null
+    "history": {
+        "claimed": true,
+        "completion-date": null,
+        "creation-method": "DIRECT",
+        "deactivation-date": null,
+        "last-modified-date": {
+            "value": 1500389169879
+        },
+        "source": null,
+        "submission-date": {
+            "value": 1426790182821
+        },
+        "verified-email": true,
+        "verified-primary-email": true
+    },
+    "orcid-identifier": {
+        "host": "orcid.org",
+        "path": "0000-0003-3041-2092",
+        "uri": "http://orcid.org/0000-0003-3041-2092"
+    },
+    "path": "/0000-0003-3041-2092",
+    "person": {
+        "addresses": {
+            "address": [],
+            "last-modified-date": null,
+            "path": "/0000-0003-3041-2092/address"
+        },
+        "biography": {
+            "content": null,
+            "created-date": {
+                "value": 1460764702810
+            },
+            "last-modified-date": {
+                "value": 1460764702810
+            },
+            "path": "/0000-0003-3041-2092/biography",
+            "visibility": "PUBLIC"
+        },
+        "emails": {
+            "email": [],
+            "last-modified-date": null,
+            "path": "/0000-0003-3041-2092/email"
+        },
+        "external-identifiers": {
+            "external-identifier": [],
+            "last-modified-date": null,
+            "path": "/0000-0003-3041-2092/external-identifiers"
+        },
+        "keywords": {
+            "keyword": [],
+            "last-modified-date": null,
+            "path": "/0000-0003-3041-2092/keywords"
+        },
+        "last-modified-date": null,
+        "name": {
+            "created-date": {
+                "value": 1460764702808
+            },
+            "credit-name": null,
+            "family-name": {
+                "value": "Chyla"
+            },
+            "given-names": {
+                "value": "Roman"
+            },
+            "last-modified-date": {
+                "value": 1460764702808
+            },
+            "path": "0000-0003-3041-2092",
+            "source": null,
+            "visibility": "PUBLIC"
+        },
+        "other-names": {
+            "last-modified-date": null,
+            "other-name": [],
+            "path": "/0000-0003-3041-2092/other-names"
+        },
+        "path": "/0000-0003-3041-2092/person",
+        "researcher-urls": {
+            "last-modified-date": null,
+            "path": "/0000-0003-3041-2092/researcher-urls",
+            "researcher-url": []
+        }
+    },
+    "preferences": {
+        "locale": "EN"
+    }
 }

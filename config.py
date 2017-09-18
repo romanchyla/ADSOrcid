@@ -53,7 +53,7 @@ API_ORCID_UPDATES_ENDPOINT = API_ENDPOINT + '/v1/orcid/export/%s'
 API_TOKEN = 'fixme'
 
 # The ORCID API public endpoint
-API_ORCID_PROFILE_ENDPOINT = 'http://pub.orcid.org/v1.2/%s/orcid-bio'
+API_ORCID_PROFILE_ENDPOINT = 'https://pub.orcid.org/v2.0/%s/record'
 
 # Levenshtein.ration() to compute similarity between two strings; if
 # lower than this, we refuse to match names, eg.
