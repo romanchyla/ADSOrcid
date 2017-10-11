@@ -16,7 +16,7 @@ import requests
 logger = setup_logging('updater')     
 
 
-def update_record(rec, claim):
+def update_record(rec, claim, min_levenshtein=0.9):
     """
     update the ADS Record; we'll add ORCID information into it 
     (at the correct position)
@@ -72,7 +72,7 @@ def update_record(rec, claim):
         if fx in claim and claim[fx]:
             
             assert(isinstance(claim[fx], list))
-            idx = find_orcid_position(rec['authors'], claim[fx])
+            idx = find_orcid_position(rec['authors'], claim[fx], min_levenshtein=min_levenshtein)
             if idx > -1:              
                 if idx >= num_authors:
                     logger.error(u'Index is beyond list boundary: \n' + 

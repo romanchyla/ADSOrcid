@@ -66,7 +66,7 @@ class ClaimsLog(Base):
                 'bibcode': self.bibcode, 'status': self.status,
                 'provenance': unicode(self.provenance), 'created': self.created and get_date(self.created).isoformat() or None
                 }
-
+    
     
 class Records(Base):
     __tablename__ = 'records'
