@@ -16,7 +16,7 @@ import requests
 logger = setup_logging('updater')     
 
 
-def update_record(rec, claim, min_levenshtein=0.9):
+def update_record(rec, claim, min_levenshtein):
     """
     update the ADS Record; we'll add ORCID information into it 
     (at the correct position)

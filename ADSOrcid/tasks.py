@@ -226,7 +226,7 @@ def task_match_claim(claim, **kwargs):
     rec = app.retrieve_record(bibcode)
     
     
-    cl = updater.update_record(rec, claim, min_levenshtein=app.conf.get('MIN_LEVENSHTEIN_RATIO', 0.9))
+    cl = updater.update_record(rec, claim, app.conf.get('MIN_LEVENSHTEIN_RATIO', 0.9))
     if cl:
         app.record_claims(bibcode, rec['claims'], rec['authors'])
         msg = OrcidClaims(authors=rec.get('authors'), bibcode=rec['bibcode'], 
