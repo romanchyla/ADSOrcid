@@ -650,12 +650,14 @@ class ADSOrcidCelery(ADSCelery):
                             authors=authors
                             )
                 session.add(r)
+                self.logger.debug('Inserting record %s', r.toJSON())
             else:
                 r.updated = get_date()
                 r.claims = claims
                 if authors:
                     r.authors = authors
                 session.merge(r)
+                self.logger.debug('Updating record %s', r.toJSON())
             session.commit()
 
 

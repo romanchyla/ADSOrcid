@@ -85,6 +85,9 @@ class Records(Base):
                 'created': self.created and get_date(self.created).isoformat() or None, 'updated': self.updated and get_date(self.updated).isoformat() or None, 
                 'processed': self.processed and get_date(self.processed).isoformat() or None
                 }
+    
+    def __str__(self):
+        return json.dumps(self.toJSON())
 
 
 class ChangeLog(Base):
