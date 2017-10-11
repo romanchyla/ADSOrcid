@@ -313,17 +313,17 @@ class TestAdsOrcidCelery(unittest.TestCase):
                          force=False,
                          orcid_identifiers_order=self.app.conf.get('ORCID_IDENTIFIERS_ORDER', {'bibcode': 9, '*': -1})
                          )
-            assert len(orcid_present) == 7 and len(updated) == 0 and len(removed) == 0
-            
+            assert len(orcid_present) == 9 and len(updated) == 0 and len(removed) == 0
+
             # pretend that we have already ran the import
-            cdate = utils.get_date('2015-11-05 16:37:33.381000+00:00') # this is the latest moddate from the orcid profile
-            self.app.insert_claims([self.app.create_claim(bibcode='', 
+            cdate = utils.get_date('2017-07-18 14:46:09.879000+00:00') # this is the latest moddate from the orcid profile
+            self.app.insert_claims([self.app.create_claim(bibcode='',
                               orcidid=orcidid, 
                               provenance='OrcidImporter', 
                               status='#full-import',
                               date=cdate
                               )])
-            
+
             # it should ignore the next call
             orcid_present, updated, removed = self.app.get_claims(orcidid,
                          self.app.conf.get('API_TOKEN'), 
@@ -341,7 +341,7 @@ class TestAdsOrcidCelery(unittest.TestCase):
                          orcid_identifiers_order=self.app.conf.get('ORCID_IDENTIFIERS_ORDER', {'bibcode': 9, '*': -1})
                          )
             #print len(orcid_present), len(updated), len(removed)
-            assert len(orcid_present) == 7 and len(updated) == 0 and len(removed) == 0
+            assert len(orcid_present) == 9 and len(updated) == 0 and len(removed) == 0
         
     
 if __name__ == '__main__':
