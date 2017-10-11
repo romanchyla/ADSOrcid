@@ -227,7 +227,7 @@ class ADSOrcidCelery(ADSCelery):
               
             # orcid is THE ugliest datastructure of today!
             try:
-                works = profile['activities-summary']['works']['group']
+                works = profile['orcid-profile']['orcid-activities']['orcid-works']['orcid-work']
             except:
                 self.logger.warning('Nothing to do for: '
                     '{0} ({1})'.format(orcidid,
@@ -236,7 +236,7 @@ class ADSOrcidCelery(ADSCelery):
     
             # check we haven't seen this very profile already
             try:
-                updt = str(profile['history']['last-modified-date']['value'])
+                updt = str(profile['orcid-profile']['orcid-history']['last-modified-date']['value'])
                 updt = float('%s.%s' % (updt[0:10], updt[10:]))
                 updt = datetime.datetime.fromtimestamp(updt, tzutc())
                 updt = get_date(updt.isoformat())
@@ -247,6 +247,7 @@ class ADSOrcidCelery(ADSCelery):
             last_update = session.query(ClaimsLog).filter(
                 and_(ClaimsLog.status == '#full-import', ClaimsLog.orcidid == orcidid)
                 ).order_by(ClaimsLog.id.desc()).first()
+                
             if last_update is None:
                 q = session.query(ClaimsLog).filter_by(orcidid=orcidid).order_by(ClaimsLog.id.asc())
             else:
@@ -268,17 +269,17 @@ class ADSOrcidCelery(ADSCelery):
             for w in works:
                 bibc = None
                 try:
-                    ids =  w['external-ids']['external-id']
+                    ids =  w['work-external-identifiers']['work-external-identifier']
                     seek_ids = []
                     
                     # painstakingly check ids (start from a bibcode) if we can find it
                     # we'll send it through (but start from bibcodes, then dois, arxiv...)
                     fmap = orcid_identifiers_order
                     for x in ids:
-                        xtype = x.get('external-id-type', None)
+                        xtype = x.get('work-external-identifier-type', None)
                         if xtype:
                             seek_ids.append((fmap.get(xtype.lower().strip(), fmap.get('*', -1)), 
-                                             x['external-id-value']))
+                                             x['work-external-identifier-id']['value']))
                     
                     if len(seek_ids) == 0:
                         continue
@@ -480,12 +481,14 @@ class ADSOrcidCelery(ADSCelery):
             self.logger.error('We cant verify public profile of: http://orcid.org/%s' % orcidid)
         else:
             # we don't trust (the ugly) ORCID profiles too much
-            # j['person']['name']['family-name']
-            if 'person' in j and 'name' in j['person'] and \
-                'family-name' in j['person']['name'] and \
-                'given-names' in j['person']['name']:
-                fname = (j['person']['name'].get('family-name', {}) or {}).get('value', None)
-                gname = (j['person']['name'].get('given-names', {}) or {}).get('value', None)
+            # j['orcid-profile']['orcid-bio']['personal-details']['family-name']
+            if 'orcid-profile' in j and 'orcid-bio' in j['orcid-profile'] \
+                and 'personal-details' in j['orcid-profile']['orcid-bio'] and \
+                'family-name' in j['orcid-profile']['orcid-bio']['personal-details'] and \
+                'given-names' in j['orcid-profile']['orcid-bio']['personal-details']:
+                
+                fname = (j['orcid-profile']['orcid-bio']['personal-details'].get('family-name', {}) or {}).get('value', None)
+                gname = (j['orcid-profile']['orcid-bio']['personal-details'].get('given-names', {}) or {}).get('value', None)
                 
                 if fname and gname:
                     author_data['orcid_name'] = ['%s, %s' % (fname, gname)]
