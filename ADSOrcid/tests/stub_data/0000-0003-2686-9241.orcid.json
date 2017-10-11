@@ -1,118 +1,65 @@
 {
-    "activities-summary": {
-        "educations": {
-            "education-summary": [],
-            "last-modified-date": null,
-            "path": "/0000-0003-2686-9241/educations"
-        },
-        "employments": {
-            "employment-summary": [],
-            "last-modified-date": null,
-            "path": "/0000-0003-2686-9241/employments"
-        },
-        "fundings": {
-            "group": [],
-            "last-modified-date": null,
-            "path": "/0000-0003-2686-9241/fundings"
-        },
-        "last-modified-date": null,
-        "path": "/0000-0003-2686-9241/activities",
-        "peer-reviews": {
-            "group": [],
-            "last-modified-date": null,
-            "path": "/0000-0003-2686-9241/peer-reviews"
-        },
-        "works": {
-            "group": [],
-            "last-modified-date": null,
-            "path": "/0000-0003-2686-9241/works"
-        }
-    },
-    "history": {
-        "claimed": true,
-        "completion-date": null,
-        "creation-method": "MEMBER_REFERRED",
-        "deactivation-date": null,
-        "last-modified-date": {
-            "value": 1504797978287
-        },
-        "source": null,
-        "submission-date": {
-            "value": 1395444767629
-        },
-        "verified-email": false,
-        "verified-primary-email": false
-    },
-    "orcid-identifier": {
-        "host": "orcid.org",
-        "path": "0000-0003-2686-9241",
-        "uri": "http://orcid.org/0000-0003-2686-9241"
-    },
-    "path": "/0000-0003-2686-9241",
-    "person": {
-        "addresses": {
-            "address": [],
-            "last-modified-date": null,
-            "path": "/0000-0003-2686-9241/address"
-        },
-        "biography": {
-            "content": null,
-            "created-date": {
-                "value": 1460764470624
+    "error-desc": null,
+    "message-version": "1.2",
+    "orcid-profile": {
+        "client-type": null,
+        "group-type": null,
+        "orcid": null,
+        "orcid-activities": null,
+        "orcid-bio": {
+            "biography": null,
+            "contact-details": null,
+            "delegation": null,
+            "external-identifiers": null,
+            "keywords": null,
+            "personal-details": {
+                "credit-name": null,
+                "family-name": {
+                    "value": "Stern"
+                },
+                "given-names": {
+                    "value": "Daniel"
+                },
+                "other-names": null
             },
+            "researcher-urls": null,
+            "scope": null
+        },
+        "orcid-deprecated": null,
+        "orcid-history": {
+            "claimed": {
+                "value": true
+            },
+            "completion-date": null,
+            "creation-method": "MEMBER_REFERRED",
+            "deactivation-date": null,
             "last-modified-date": {
-                "value": 1460764470624
+                "value": 1396099697200
             },
-            "path": "/0000-0003-2686-9241/biography",
-            "visibility": "PUBLIC"
-        },
-        "emails": {
-            "email": [],
-            "last-modified-date": null,
-            "path": "/0000-0003-2686-9241/email"
-        },
-        "external-identifiers": {
-            "external-identifier": [],
-            "last-modified-date": null,
-            "path": "/0000-0003-2686-9241/external-identifiers"
-        },
-        "keywords": {
-            "keyword": [],
-            "last-modified-date": null,
-            "path": "/0000-0003-2686-9241/keywords"
-        },
-        "last-modified-date": null,
-        "name": {
-            "created-date": {
-                "value": 1460764470621
-            },
-            "credit-name": null,
-            "family-name": {
-                "value": "Stern"
-            },
-            "given-names": {
-                "value": "Daniel"
-            },
-            "last-modified-date": {
-                "value": 1460764470621
-            },
-            "path": "0000-0003-2686-9241",
             "source": null,
-            "visibility": "PUBLIC"
+            "submission-date": {
+                "value": 1395444767629
+            },
+            "verified-email": {
+                "value": false
+            },
+            "verified-primary-email": {
+                "value": false
+            },
+            "visibility": null
         },
-        "other-names": {
-            "last-modified-date": null,
-            "other-name": [],
-            "path": "/0000-0003-2686-9241/other-names"
+        "orcid-id": null,
+        "orcid-identifier": {
+            "host": "orcid.org",
+            "path": "0000-0003-2686-9241",
+            "uri": "http://orcid.org/0000-0003-2686-9241",
+            "value": null
         },
-        "path": "/0000-0003-2686-9241/person",
-        "researcher-urls": {
-            "last-modified-date": null,
-            "path": "/0000-0003-2686-9241/researcher-urls",
-            "researcher-url": []
-        }
+        "orcid-internal": null,
+        "orcid-preferences": {
+            "locale": "EN"
+        },
+        "type": "USER"
     },
-    "preferences": {
-        "locale": "EN"
-    }
+    "orcid-search-results": null
 }
