@@ -7,7 +7,7 @@ from ADSOrcid.exceptions import IgnorableException
 from celery import Celery
 from contextlib import contextmanager
 from dateutil.tz import tzutc
-from sqlalchemy import and_
+from sqlalchemy import and_, or_
 from sqlalchemy import create_engine
 from sqlalchemy.orm import scoped_session
 from sqlalchemy.orm import sessionmaker
@@ -19,6 +19,8 @@ import random
 import requests
 import time
 import traceback
+from ADSOrcid.models import AuthorInfo
+import adsputils
 
 
 # global objects; we could make them belong to the app object but it doesn't seem necessary
@@ -680,4 +682,28 @@ class ADSOrcidCelery(ADSCelery):
                 raise IgnorableException('Nonexistant record for {0}'.format(bibcode))
             r.processed = get_date()
             session.commit()
-            return True   
+            return True
+
+
+    def touch_author(self, orcidid, timestamp=None):
+        """Update 'visited' timestamp for a given author (orcidid)
+        :param orcidid: - string, orcid id
+        :keyword timestamp: - optional, time that should be inserted into the record
+        :return: True if author found and updates, False otherwise
+        """
+        
+        with self.session_scope() as session:
+            r = session.query(AuthorInfo).filter_by(AuthorInfo.orcidid == orcidid).first()
+            if r is None:
+                return False
+            r.visited = timestamp or adsputils.get_date()
+            session.commit()
+            return True
+        
+    def get_untouched_authors(self, timestamp):
+        """Return all the orcidids that have been visited
+        before timestamp T.
+        """
+        with self.session_scope() as session:
+            for r in session.query(AuthorInfo).filter_by(or_(AuthorInfo.visited < timestamp, AuthorInfo.visited == None)).yield_per(100):
+                yield r.orcidid

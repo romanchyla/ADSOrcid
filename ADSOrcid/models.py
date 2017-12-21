@@ -43,12 +43,15 @@ class AuthorInfo(Base):
     account_id = Column(Integer)
     created = Column(UTCDateTime, default=get_date)
     updated = Column(UTCDateTime, default=get_date)
+    visited = Column(UTCDateTime, default=get_date)
     
     def toJSON(self):
         return {'id': self.id, 'orcidid': self.orcidid,
                 'name': self.name, 'facts': self.facts and json.loads(self.facts) or {},
                 'status': self.status, 'account_id': self.account_id,
-                'created': self.created and get_date(self.created).isoformat() or None, 'updated': self.updated and get_date(self.updated).isoformat() or None
+                'created': self.created and get_date(self.created).isoformat() or None, 
+                'updated': self.updated and get_date(self.updated).isoformat() or None,
+                'visited': self.visited and get_date(self.visited).isoformat() or None
                 }
     
     

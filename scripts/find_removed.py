@@ -39,6 +39,12 @@ def run():
     
     print 'found', len(offended_authors), 'instances of all-removed profiles'
     
+    with open('/tmp/removed-orcid-profiles.txt', 'w') as f:
+        for x in offended_authors:
+            f.write(x)
+            f.write("\n")
+    print 'written missing profiles into /tmp/removed-orcid-profiles.txt'
+    
     if 'submit' in sys.argv:
         for x in offended_authors:
             tasks.task_index_orcid_profile({'orcidid': x})

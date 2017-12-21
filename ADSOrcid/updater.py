@@ -194,7 +194,7 @@ def reindex_all_claims(app, orcidid, since=None, ignore_errors=False):
                 claim = {'bibcode': bibcode, 'orcidid': orcidid}
                 claim.update(author.get('facts', {}))
                 try:
-                    _claims = update_record(rec, claim)
+                    _claims = update_record(rec, claim, app.conf.get('MIN_LEVENSHTEIN_RATIO', 0.9))
                     if _claims:
                         r.claims = json.dumps(rec.get('claims', {}))
                         r.updated = get_date()

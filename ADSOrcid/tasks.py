@@ -9,9 +9,9 @@ from ADSOrcid.models import KeyValue
 from kombu import Queue
 import datetime
 import requests
+import os
 
-
-app = app_module.ADSOrcidCelery('orcid-pipeline')
+app = app_module.ADSOrcidCelery('orcid-pipeline', proj_home=os.path.realpath(os.path.join(os.path.dirname(__file__), '../')))
 app.conf.CELERY_QUEUES = (
     Queue('check-orcidid', app.exchange, routing_key='check-orcidid'),
     Queue('record-claim', app.exchange, routing_key='record-claim'),
@@ -49,6 +49,7 @@ def task_index_orcid_profile(message):
     message['start'] = adsputils.get_date()
     orcidid = message['orcidid']
 
+    timestamp_checked = adsputils.get_date()
     orcid_present, updated, removed = app.get_claims(orcidid,
                          app.conf.get('API_TOKEN'), 
                          app.conf.get('API_ORCID_EXPORT_PROFILE') % orcidid,
@@ -127,8 +128,9 @@ def task_index_orcid_profile(message):
                 claim['bibcode_verified'] = True
                 task_ingest_claim.delay(claim)
             
-    # reschedule future check
-    task_index_orcid_profile.apply_async(args=(message,), countdown = app.conf.get('ORCID_PROFILE_RECHECK_WINDOW', 3600*24))
+    # record that we have checked the orcid
+    app.touch_author(orcidid, timestamp_checked)
+    
 
 
 
@@ -349,4 +351,5 @@ def task_check_orcid_updates(msg):
 
 
 if __name__ == '__main__':
+    logger.debug('Starting')
     app.start()
